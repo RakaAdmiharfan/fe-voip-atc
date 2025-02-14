@@ -63,25 +63,6 @@ export default function ModalAdd({
     } else {
       setUsernameError(null);
     }
-
-    // try {
-    //   // Call the API with the provided username
-    //   const response = await getWithAuth(
-    //     token,
-    //     `/users?username=${username}` // Encode username to handle special characters
-    //   );
-
-    //   const data = response.data.data?.data || [];
-
-    //   // Assuming `data.exists` is true if the username exists
-    //   if (data.exists) {
-    //     setUsernameError("Username is already taken.");
-    //   } else {
-    //     setUsernameError(null); // Clear the error if the username is available
-    //   }
-    // } catch (error) {
-    //   console.error("Error checking username:", error);
-    // }
   };
 
   return (

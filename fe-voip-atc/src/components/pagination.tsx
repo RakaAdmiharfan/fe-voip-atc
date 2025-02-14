@@ -1,6 +1,7 @@
 "use client";
 import { GrLinkNext, GrLinkPrevious } from "react-icons/gr";
 import Button from "./button";
+import { JSX } from "react";
 
 export default function Pagination({
   totalPages,

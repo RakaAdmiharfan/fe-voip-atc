@@ -15,7 +15,7 @@ export default function Button({
   type: "button" | "submit" | "reset" | undefined;
   onClick?: MouseEventHandler<HTMLButtonElement> | undefined;
   onSubmit?: FormEventHandler<HTMLButtonElement> | undefined;
-  color?: "primary" | "red" | "neutral" | "secondary" | "tersier";
+  color?: "primary" | "red" | "neutral" | "secondary" | "tersier" | "black";
   icon?: React.ReactNode;
   disable?: boolean;
   width?: number;
@@ -33,13 +33,15 @@ export default function Button({
         disable
           ? "bg-[#D1D1D6]"
           : color == "primary"
-          ? "bg-primary-900"
+          ? "bg-orange-400"
           : color == "red"
           ? "bg-error-600"
           : color == "secondary"
           ? "bg-light-900"
           : color == "tersier"
           ? "bg-navy-900"
+          : color == "black"
+          ? "bg-gray-950"
           : "bg-white border-[1px] border-[#D5D7DA]"
       }`}
     >

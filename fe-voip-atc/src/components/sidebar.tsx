@@ -128,8 +128,8 @@ const Sidebar = () => {
                 href="/contact"
                 className={`flex items-center p-2 rounded-lg ${
                   active === 1
-                    ? `text-black font-semibold border border-[#E6E7EC]`
-                    : `text-gray-700 hover:text-black`
+                    ? `text-white font-semibold border bg-orange-400`
+                    : `text-orange-400 hover:text-black`
                 }`}
               >
                 <IoPersonCircleSharp className="w-6 h-6" />
@@ -149,8 +149,8 @@ const Sidebar = () => {
                 href="/call-list"
                 className={`flex items-center p-2 rounded-lg ${
                   active === 2
-                    ? `text-black font-semibold border border-[#E6E7EC]`
-                    : `text-gray-700 hover:text-black`
+                    ? `text-white font-semibold border bg-orange-400`
+                    : `text-orange-400 hover:text-black hover:bg-orange-100`
                 }`}
                 // onClick={() => setIsMobileOpen(false)}
               >
@@ -171,8 +171,8 @@ const Sidebar = () => {
                 href="/channel"
                 className={`flex items-center p-2 rounded-lg ${
                   active === 3
-                    ? `text-black font-semibold border border-[#E6E7EC]`
-                    : `text-gray-700 hover:text-black`
+                    ? `text-white font-semibold border bg-orange-400`
+                    : `text-orange-400 hover:text-black hover:bg-orange-100`
                 }`}
                 // onClick={() => setIsMobileOpen(false)}
               >
