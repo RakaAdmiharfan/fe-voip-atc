@@ -143,28 +143,6 @@ const Sidebar = () => {
               </Link>
             </li>
 
-            {/* Call List */}
-            <li className="mt-4">
-              <Link
-                href="/call-list"
-                className={`flex items-center p-2 rounded-lg ${
-                  active === 2
-                    ? `text-white font-semibold border bg-orange-400`
-                    : `text-orange-400 hover:text-black hover:bg-orange-100`
-                }`}
-                // onClick={() => setIsMobileOpen(false)}
-              >
-                <IoPersonCircleSharp className="w-6 h-6" />
-                <span
-                  className={`${
-                    navOpen || isMobileOpen ? "block" : "hidden"
-                  } lg:block ml-3`}
-                >
-                  Call List
-                </span>
-              </Link>
-            </li>
-
             {/* channel */}
             <li className="mt-4">
               <Link
@@ -183,6 +161,28 @@ const Sidebar = () => {
                   } lg:block ml-3`}
                 >
                   Channel
+                </span>
+              </Link>
+            </li>
+
+            {/* Call List */}
+            <li className="mt-4">
+              <Link
+                href="/call-list"
+                className={`flex items-center p-2 rounded-lg ${
+                  active === 2
+                    ? `text-white font-semibold border bg-orange-400`
+                    : `text-orange-400 hover:text-black hover:bg-orange-100`
+                }`}
+                // onClick={() => setIsMobileOpen(false)}
+              >
+                <IoPersonCircleSharp className="w-6 h-6" />
+                <span
+                  className={`${
+                    navOpen || isMobileOpen ? "block" : "hidden"
+                  } lg:block ml-3`}
+                >
+                  Call List
                 </span>
               </Link>
             </li>

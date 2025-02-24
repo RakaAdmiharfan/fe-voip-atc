@@ -46,7 +46,11 @@ export default function Button({
       }`}
     >
       {isLoading ? (
-        <div className="text-white flex justify-center items-center">
+        <div
+          className={`${
+            color == "primary" ? "text-white" : "text-black"
+          } flex justify-center items-center`}
+        >
           <svg
             className="mr-3 h-5 w-5 animate-spin"
             xmlns="http://www.w3.org/2000/svg"

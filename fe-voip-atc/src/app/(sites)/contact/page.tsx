@@ -1,22 +1,24 @@
 "use client";
-import { useState } from "react";
-import VoIPComponent from "@/components/voip-component";
+import { useState, useCallback } from "react";
+import VoIPComponent from "@/context/voip-component";
 import Button from "@/components/button";
 import TextField from "@/components/textfield";
 import ModalApprove from "@/components/modal-approval";
 import { MdEdit } from "react-icons/md";
 import { IoCallSharp } from "react-icons/io5";
 import { FaTrash } from "react-icons/fa";
-import { UserAgent, Inviter, URI } from "sip.js";
+import { UserAgent, Inviter, URI, SessionState } from "sip.js";
 import ModalAdd from "@/components/modal-add";
+import { useCall } from "@/context/callContext";
 
 export default function ContactPage() {
   const [contacts, setContacts] = useState([
-    { contact_id: 101, username: "johndoe", name: "John Doe" },
+    { contact_id: 101, username: "webrtc_user", name: "John Doe" },
     { contact_id: 102, username: "janedoe", name: "Jane Doe" },
     { contact_id: 103, username: "alexsmith", name: "Alex Smith" },
   ]);
 
+  const [callState, setCallState] = useState("");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [sipUserAgent, setSipUserAgent] = useState<UserAgent | null>(null);
@@ -28,47 +30,45 @@ export default function ContactPage() {
     email: "",
   });
 
-  const handleCall = async (username: string) => {
-    if (!sipUserAgent) {
-      alert("SIP not connected!");
-      return;
-    }
+  const { startCall, addParticipant } = useCall();
 
-    try {
-      const targetURI = UserAgent.makeURI(
-        `sip:${username}@your_asterisk_server`
-      );
-      if (!targetURI) {
-        throw new Error("Invalid target URI");
+  const handleCall = useCallback(
+    async (username: string) => {
+      if (!sipUserAgent) {
+        alert("SIP not connected!");
+        return;
       }
 
-      // Membuat sesi panggilan dengan Inviter
-      const inviter = new Inviter(sipUserAgent, targetURI);
+      try {
+        const targetURI = UserAgent.makeURI(`sip:${username}@108.136.168.80`);
+        if (!targetURI) throw new Error("Invalid target URI");
 
-      // Mulai panggilan
-      await inviter.invite();
+        const inviter = new Inviter(sipUserAgent, targetURI);
+        await inviter.invite();
 
-      inviter.stateChange.addListener((state) => {
-        console.log(`Call state changed: ${state}`);
-        if (state === "Terminated") {
-          console.log("Call ended.");
-        }
-      });
+        startCall(username, "test.com");
 
-      console.log(`Calling ${username}...`);
-    } catch (error) {
-      console.error("Error making call:", error);
-      alert("Call failed!");
-    }
-  };
+        inviter.stateChange.addListener((state) => {
+          console.log(`Call state changed: ${state}`);
 
-  const handleModalClose = () => {
-    setShowAddModal(false);
-  };
+          if (state === SessionState.Established) {
+            setCallState("connected");
+            addParticipant(username);
+            console.log("Call established.");
+          } else if (state === SessionState.Terminated) {
+            setCallState("idle");
+            console.log("Call ended.");
+          }
+        });
 
-  const handleAdd = () => {
-    setShowAddModal(false);
-  };
+        console.log(`Calling ${username}...`);
+      } catch (error) {
+        console.error("Error making call:", error);
+        alert("Call failed!");
+      }
+    },
+    [sipUserAgent, startCall, addParticipant]
+  );
 
   return (
     <div>
@@ -76,13 +76,13 @@ export default function ContactPage() {
       <VoIPComponent onAgentReady={setSipUserAgent} />
       {showAddModal && (
         <ModalAdd
-          title={"Tambah Akun"}
+          title="Tambah Akun"
           formData={formData}
           setFormData={setFormData}
           button1Text="Batalkan"
-          button2Text={"Tambah"}
-          onButton1Click={handleModalClose}
-          onButton2Click={() => handleAdd()}
+          button2Text="Tambah"
+          onButton1Click={() => setShowAddModal(false)}
+          onButton2Click={() => setShowAddModal(false)}
           isEdit={true}
         />
       )}
@@ -96,16 +96,16 @@ export default function ContactPage() {
             name="Search"
             type="search"
             placeholder="Search"
-            label=""
             onChange={(e) => setSearch(e.target.value)}
+            label={""}
           />
         </div>
         <Button
           text="Tambah Akun"
-          type="button"
           width={170}
           onClick={() => setShowAddModal(true)}
           color="primary"
+          type={undefined}
         />
       </div>
 
@@ -126,10 +126,8 @@ export default function ContactPage() {
                   <td className="p-8 border-b">{contact.name}</td>
                   <td className="p-8 border-b gap-6 flex justify-center">
                     <button
-                      onClick={() => {
-                        setShowAddModal(true);
-                      }}
-                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-200 transition"
+                      onClick={() => setShowAddModal(true)}
+                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-300 transition"
                     >
                       <MdEdit size={20} className="text-white" />
                     </button>
@@ -141,13 +139,13 @@ export default function ContactPage() {
                           )
                         )
                       }
-                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-200 transition"
+                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-300 transition"
                     >
                       <FaTrash size={20} className="text-white" />
                     </button>
                     <button
                       onClick={() => handleCall(contact.username)}
-                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-200 transition"
+                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-300 transition"
                     >
                       <IoCallSharp size={20} className="text-white" />
                     </button>

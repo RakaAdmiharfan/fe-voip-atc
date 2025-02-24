@@ -1,7 +1,8 @@
 import React from "react";
-import Header from "@/components/header";
 import Sidebar from "@/components/sidebar";
 import "react-toastify/dist/ReactToastify.css";
+import CallUI from "@/components/callUI";
+import { CallProvider } from "@/context/callContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,14 +10,15 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <>
+    <CallProvider>
       <div className="flex h-screen bg-white">
         <Sidebar />
-        <div className="ml-16 lg:ml-0 flex-1 flex flex-col w-screen bg-white overflow-hidden">
+        <div className="ml-16 lg:ml-0 flex-1 flex flex-col w-screen bg-white overflow-hidden relative">
           <main className="p-8 md:p-12 overflow-y-auto">{children}</main>
+          <CallUI /> {/* CallUI tetap di dalam div utama agar bisa muncul */}
         </div>
       </div>
-    </>
+    </CallProvider>
   );
 };
 
