@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { LuLogOut } from "react-icons/lu";
 import ModalApprove from "./modal-approval";
-import { postWithAuth } from "@/services/api";
+import { postWithAuth } from "@/app/api/(auth)/login/route";
 import Cookies from "universal-cookie";
 import { useRouter } from "next/navigation";
 

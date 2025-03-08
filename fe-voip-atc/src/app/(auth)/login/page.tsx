@@ -1,12 +1,12 @@
-"use client"
+"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { post } from "@/services/api"; // Pastikan kamu punya fungsi POST ke backend
-import { UserAgent, URI } from "sip.js";
+import { UserAgent, URI, Registerer } from "sip.js";
 import Toast from "@/components/toast";
 import TextField from "@/components/textfield";
 import Link from "next/link";
 import Button from "@/components/button";
+import axios from "axios";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -21,35 +21,58 @@ export default function Login() {
     setIsError(false);
 
     try {
-      // const response = await post("/auth/login", { username, password });
-      // console.log(response);
-      // if (response.status !== 200) {
-      //   setIsError(true);
-      //   return;
-      // }
+      // Send login request to the backend
+      const response = await axios.post("/api/login", { username, password });
 
-      // const { sipConfig } = response.data;
-      const sipConfig = {
-        username: "user7@gmail.com",
-        password: "user7@gmail.com",
-        domain: "16.78.90.15",
-        wss: "wss://16.78.90.15:5060"
-      };
+      // Check if response is valid and contains sipConfig
+      if (response.status !== 200) {
+        throw new Error("Invalid credentials");
+      }
+
+      const { sipConfig } = response.data;
+
+      // Log the response data to see if sipConfig is included
+      console.log("Backend Response:", response.data);
+
+      if (!sipConfig) {
+        throw new Error("Missing SIP configuration in the response");
+      }
+
       console.log("SIP Config:", sipConfig);
 
-      // Registrasi SIP.js ke Asterisk
+      // ✅ Validasi SIP URI sebelum digunakan
+      const uri = UserAgent.makeURI(
+        `sip:${sipConfig.username}@${sipConfig.domain}`
+      );
+      if (!uri) {
+        throw new Error("Invalid SIP URI");
+      }
+
+      // ✅ Pastikan transport WSS valid
+      if (!sipConfig.wss) {
+        throw new Error("Invalid WebSocket server");
+      }
+
+      // ✅ Buat SIP UserAgent
       const userAgent = new UserAgent({
-        uri: new URI("sip", sipConfig.username, sipConfig.domain),
-        transportOptions: {
-          server: sipConfig.wss,
-        },
+        uri,
+        transportOptions: { server: sipConfig.wss },
         authorizationUsername: sipConfig.username,
         authorizationPassword: sipConfig.password,
       });
-      await userAgent.start(); // Registrasi ke Asterisk
-      console.log("SIP Registered!");
 
-      router.push("/dashboard"); // Redirect setelah login sukses
+      // ✅ Pastikan userAgent bisa connect sebelum register
+      await userAgent.start();
+      if (!userAgent.isConnected()) {
+        throw new Error("Failed to connect SIP UserAgent");
+      }
+
+      // ✅ Gunakan Registerer untuk melakukan registrasi
+      const registerer = new Registerer(userAgent);
+      await registerer.register();
+
+      console.log("SIP Registered!");
+      router.push("/contact"); // Redirect setelah sukses
     } catch (error) {
       console.error("Login Failed:", error);
       setIsError(true);
@@ -64,11 +87,11 @@ export default function Login() {
         <Toast
           type={"error"}
           title={"Gagal Login"}
-          description={"Pastikan semua field terisi dengan benar."}
+          description={"Login Failed"}
           onClick={() => setIsError(false)}
         />
       )}
-  
+
       <div className="w-auto h-auto flex flex-col items-center bg-white rounded-[20px] drop-shadow-2xl shadow-[#0A0D1224] p-5 md:p-6">
         <p className="text-gray-950 text-[24px] md:text-[30px] font-bold mt-3">
           Login
@@ -82,7 +105,7 @@ export default function Login() {
           placeholder="Masukkan username"
           label="Username"
           value={username}
-          onChange={(val) => setUsername(val.target.value)}
+          onChange={(e) => setUsername(e.target.value)}
         />
         <TextField
           name="password"
@@ -90,11 +113,14 @@ export default function Login() {
           placeholder="Masukkan password"
           label="Password"
           value={password}
-          onChange={(val) => setPassword(val.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
         />
         <p className="text-[#535862] text-[10px] md:text-[14px] font-normal my-3 md:my-6">
           Doesn't Have an Account?{" "}
-          <Link href="/register" className="text-blue-500 font-medium hover:underline">
+          <Link
+            href="/register"
+            className="text-blue-500 font-medium hover:underline"
+          >
             Register
           </Link>
         </p>
@@ -108,5 +134,4 @@ export default function Login() {
       </div>
     </div>
   );
-  
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useCallback } from "react";
-import VoIPComponent from "@/context/voip-component";
+import VoIPComponent from "@/context/voipComponent";
 import Button from "@/components/button";
 import TextField from "@/components/textfield";
 import ModalApprove from "@/components/modal-approval";
@@ -73,7 +73,7 @@ export default function ContactPage() {
   return (
     <div>
       {/* SIP Initialization */}
-      <VoIPComponent onAgentReady={setSipUserAgent} />
+      {/* <VoIPComponent onAgentReady={setSipUserAgent} /> */}
       {showAddModal && (
         <ModalAdd
           title="Tambah Akun"

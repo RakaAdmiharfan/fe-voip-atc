@@ -59,7 +59,7 @@ export default function Register() {
   };
 
   return (
-    <div className="w-screen h-screen bg-orange-100 bg-cover flex flex-col justify-center items-center gap-6">
+    <div className="w-screen h-screen bg-[#1e1f22] bg-cover flex flex-col justify-center items-center gap-6">
       {/* {isPageLoading && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="flex flex-col items-center gap-4">

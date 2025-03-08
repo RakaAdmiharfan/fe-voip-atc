@@ -62,7 +62,7 @@ export default function Button({
               cx="12"
               cy="12"
               r="10"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="4"
             ></circle>
             <path
