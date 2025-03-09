@@ -1,79 +1,70 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import VoIPComponent from "@/context/voipComponent";
 import Button from "@/components/button";
 import TextField from "@/components/textfield";
-import ModalApprove from "@/components/modal-approval";
 import { MdEdit } from "react-icons/md";
 import { IoCallSharp } from "react-icons/io5";
 import { FaTrash } from "react-icons/fa";
 import { UserAgent, Inviter, URI, SessionState } from "sip.js";
 import ModalAdd from "@/components/modal-add";
+import CallUI from "@/components/callUI";
 import { useCall } from "@/context/callContext";
 
 export default function ContactPage() {
   const [contacts, setContacts] = useState([
-    { contact_id: 101, username: "webrtc_user", name: "John Doe" },
+    { contact_id: 101, username: "user7@gmail.com", name: "John Doe" },
     { contact_id: 102, username: "janedoe", name: "Jane Doe" },
     { contact_id: 103, username: "alexsmith", name: "Alex Smith" },
   ]);
-
+  const [sipUserAgent, setSipUserAgent] = useState<UserAgent | null>(null);
   const [callState, setCallState] = useState("");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [sipUserAgent, setSipUserAgent] = useState<UserAgent | null>(null);
   const [formData, setFormData] = useState({
     username: "",
-    password: "",
-    role: "manager",
-    status: "",
-    email: "",
   });
 
-  const { startCall, addParticipant } = useCall();
+  const ws = useRef<WebSocket | null>(null);
 
-  const handleCall = useCallback(
-    async (username: string) => {
-      if (!sipUserAgent) {
-        alert("SIP not connected!");
-        return;
-      }
+  // Inisialisasi WebSocket saat halaman dimuat
+  useEffect(() => {
+    ws.current = new WebSocket("wss://localhost:3000/api/websocket");
 
-      try {
-        const targetURI = UserAgent.makeURI(`sip:${username}@108.136.168.80`);
-        if (!targetURI) throw new Error("Invalid target URI");
+    ws.current.onopen = () => {
+      console.log("Connected to WebSocket server");
+    };
 
-        const inviter = new Inviter(sipUserAgent, targetURI);
-        await inviter.invite();
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("Received WebSocket message:", data);
+    };
 
-        startCall(username, "test.com");
+    ws.current.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
 
-        inviter.stateChange.addListener((state) => {
-          console.log(`Call state changed: ${state}`);
+    ws.current.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
 
-          if (state === SessionState.Established) {
-            setCallState("connected");
-            addParticipant(username);
-            console.log("Call established.");
-          } else if (state === SessionState.Terminated) {
-            setCallState("idle");
-            console.log("Call ended.");
-          }
-        });
+    return () => {
+      if (ws.current) ws.current.close();
+    };
+  }, []);
 
-        console.log(`Calling ${username}...`);
-      } catch (error) {
-        console.error("Error making call:", error);
-        alert("Call failed!");
-      }
-    },
-    [sipUserAgent, startCall, addParticipant]
-  );
+  // Fungsi untuk melakukan panggilan
+  const handleCall = async (username: string) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ action: "call", username }));
+    } else {
+      console.error("WebSocket is not connected");
+    }
+  };
 
   return (
     <div>
       {/* SIP Initialization */}
-      {/* <VoIPComponent onAgentReady={setSipUserAgent} /> */}
       {showAddModal && (
         <ModalAdd
           title="Tambah Akun"
@@ -83,7 +74,7 @@ export default function ContactPage() {
           button2Text="Tambah"
           onButton1Click={() => setShowAddModal(false)}
           onButton2Click={() => setShowAddModal(false)}
-          isEdit={true}
+          isEdit={false}
         />
       )}
 

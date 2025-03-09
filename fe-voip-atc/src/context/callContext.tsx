@@ -12,7 +12,6 @@ interface Participant {
 
 interface CallContextType {
   startCall: (username: string, targetUri: string) => void;
-  addParticipant: (username: string) => void;
   isInCall: boolean;
   caller: string;
   callState: "idle" | "ringing" | "connected";
@@ -23,8 +22,31 @@ interface CallContextType {
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
+const sipUri = UserAgent.makeURI("sip:username@domain.com");
+const sipUserAgent = new UserAgent({
+  uri: sipUri!,
+  transportOptions: { server: "wss://your-sip-server.com" },
+  authorizationUsername: "username",
+  authorizationPassword: "password",
+});
 
-export function CallProvider({ children }: { children: React.ReactNode }) {
+// Coba start manual
+sipUserAgent
+  .start()
+  .then(() => {
+    console.log("SIP UserAgent started:", sipUserAgent);
+  })
+  .catch((error) => {
+    console.error("Failed to start UserAgent:", error);
+  });
+
+export function CallProvider({
+  children,
+  userAgent,
+}: {
+  children: React.ReactNode;
+  userAgent: UserAgent;
+}) {
   const [isInCall, setIsInCall] = useState(false);
   const [caller, setCaller] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -32,9 +54,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     "idle"
   );
   const [callSession, setCallSession] = useState<Session | null>(null);
-  const [userAgent, setUserAgent] = useState<UserAgent | null>(null);
 
-  // Fungsi untuk memulai panggilan
+  // Pastikan `userAgent` tidak null saat start call
   const startCall = async (username: string, targetUri: string) => {
     if (!userAgent) {
       console.error("UserAgent SIP belum dikonfigurasi.");
@@ -45,7 +66,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setCallState("ringing");
     setIsInCall(true);
 
-    // Buat Inviter (memulai panggilan)
     const uri = UserAgent.makeURI(targetUri);
     if (!uri) {
       console.error("URI target tidak valid.");
@@ -53,11 +73,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
 
     const inviter = new Inviter(userAgent, uri);
-
     try {
-      const outgoingRequest = await inviter.invite(); // Kirim SIP INVITE
+      await inviter.invite();
 
-      // Tangani event session (menggunakan delegate)
       inviter.delegate = {
         onInvite: () => console.log("Ringing..."),
         onAck: () => {
@@ -79,7 +97,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         },
       ]);
 
-      setCallSession(inviter); // Simpan session
+      setCallSession(inviter);
     } catch (error) {
       console.error("Gagal memulai panggilan:", error);
       setIsInCall(false);
@@ -87,32 +105,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Fungsi untuk menambahkan peserta baru
-  const addParticipant = (username: string) => {
-    setParticipants((prev) => {
-      if (prev.some((p) => p.name === username)) return prev;
-
-      return [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          name: username,
-          avatar: `https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png?img=${
-            prev.length + 1
-          }`,
-          isSpeaking: false,
-        },
-      ];
-    });
-
-    // Anggap panggilan dimulai jika ada peserta lain masuk
-    setCallState("connected");
-  };
-
-  // Fungsi untuk mengakhiri panggilan
   const endCall = () => {
-    if (callSession) {
-      callSession.bye(); // Kirim SIP BYE
+    if (callSession && callSession.state === "Established") {
+      callSession.bye();
     }
 
     setIsInCall(false);
@@ -126,11 +121,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     <CallContext.Provider
       value={{
         startCall,
-        addParticipant,
         isInCall,
         caller,
-        participants,
         callState,
+        participants,
         setCallState,
         endCall,
         callSession,

@@ -20,18 +20,10 @@ export default function ModalAdd({
   title: string;
   formData: {
     username: string;
-    password: string;
-    role: string;
-    status: string;
-    email: string;
   };
   setFormData: React.Dispatch<
     React.SetStateAction<{
       username: string;
-      password: string;
-      role: string;
-      status: string;
-      email: string;
     }>
   >;
   button1Text: string;
@@ -44,16 +36,7 @@ export default function ModalAdd({
   button2TextColor?: string;
   isEdit?: boolean;
 }) {
-  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
-
-  const validatePassword = (password: string) => {
-    if (password.length < 8) {
-      setPasswordError("Password must be at least 8 characters long.");
-    } else {
-      setPasswordError(null);
-    }
-  };
 
   const validateUsername = async (username: string) => {
     // Check if the input field is empty or contains only spaces
@@ -84,86 +67,18 @@ export default function ModalAdd({
           {/* Field yang muncul hanya saat menambahkan */}
           {!isEdit && (
             <TextField
-              name={"Email"}
-              placeholder={"Enter Email"}
-              label={"Email"}
+              name={"Username"}
+              placeholder={"Enter username"}
+              label={"Username"}
               type="field"
-              value={formData.email || ""}
-              onChange={(e) => {
-                const email = e.target.value;
-                setFormData((prev) => ({ ...prev, email }));
+              value={formData.username || ""}
+              onChange={async (e) => {
+                const username = e.target.value;
+                setFormData((prev) => ({ ...prev, username }));
+                await validateUsername(username);
               }}
             />
           )}
-
-          {/* Field yang muncul hanya saat mengedit */}
-          {isEdit && (
-            <>
-              <TextField
-                name={"Username"}
-                placeholder={"Enter username"}
-                label={"Username"}
-                type="field"
-                value={formData.username || ""}
-                onChange={async (e) => {
-                  const username = e.target.value;
-                  setFormData((prev) => ({ ...prev, username }));
-                  await validateUsername(username);
-                }}
-              />
-              {usernameError && (
-                <p className="text-red-500 text-sm mb-4">{usernameError}</p>
-              )}
-
-              <TextField
-                name={"Password"}
-                placeholder={"Enter password"}
-                label={"Password"}
-                type="password"
-                value={formData.password || ""}
-                onChange={(e) => {
-                  const password = e.target.value;
-                  setFormData((prev) => ({ ...prev, password }));
-                  validatePassword(password);
-                }}
-              />
-              {passwordError && (
-                <p className="text-red-500 text-sm mb-4">{passwordError}</p>
-              )}
-
-              <TextField
-                name={"Status"}
-                placeholder={"Change Status"}
-                label={"Status"}
-                type="dropdown"
-                options={[
-                  { label: "Active", value: "active" },
-                  { label: "Inactive", value: "inactive" },
-                ]}
-                value={formData.status || ""}
-                onChangeDropdown={(e) =>
-                  setFormData((prev) => ({ ...prev, status: e.target.value }))
-                }
-              />
-            </>
-          )}
-
-          {/* Field yang muncul pada kedua mode */}
-          <TextField
-            name={"Role"}
-            placeholder={"Select role"}
-            label={"Role"}
-            type="dropdown"
-            options={[
-              { label: "Manager", value: "manager" },
-              { label: "Kementrian", value: "user_kementerian" },
-              { label: "Data Entry", value: "data_entry" },
-            ]}
-            defaultValue="manager"
-            onChangeDropdown={(e) =>
-              setFormData((prev) => ({ ...prev, role: e.target.value }))
-            }
-          />
         </div>
 
         {/* Action Buttons */}
