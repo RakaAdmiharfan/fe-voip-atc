@@ -62,11 +62,11 @@ export default function CallUI() {
               <div className="w-24 h-24 rounded-full border-4 border-gray-500 overflow-hidden flex items-center justify-center bg-gray-800">
                 <img
                   src={user.avatar}
-                  alt={user.name}
+                  alt={user.username}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="mt-2 text-gray-300 text-sm">{user.name}</span>
+              <span className="mt-2 text-gray-300 text-sm">{user.username}</span>
             </div>
           ))}
         </div>

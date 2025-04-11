@@ -1,42 +1,39 @@
-import fetch from "node-fetch";
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 
-export default async function handler(req: any, res: any) {
-  if (req.method === "POST") {
-    const { username, password } = req.body;
+// POST /api/register
+export async function POST(req: Request) {
+  const body = await req.json();
+  const { username, password, email } = body;
 
-    const amiUrl = "http://16.78.90.15:5038/ari/"; // Ganti dengan alamat Asterisk yang sesuai
-    const amiUser = "admin"; // Nama pengguna AMI
-    const amiPass = "admin"; // Kata sandi AMI
+  if (!username || !password) {
+    return NextResponse.json(
+      { message: "Username and password required" },
+      { status: 400 }
+    );
+  }
 
-    // Kirimkan perintah untuk menambah pengguna baru di PJSIP melalui AMI
-    const amiCommand = `Action: Originate
-Channel: PJSIP/${username}
-Context: default
-Exten: 1000
-Priority: 1
-Timeout: 30000
-CallerID: ${username}
-Application: Dial
-Data: PJSIP/${username}`;
+  try {
+    // Hash password untuk login web
+    const password_hash = await bcrypt.hash(password, 10);
 
-    try {
-      const response = await fetch(`http://16.78.90.15:5038/ami`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: `Action: Login\r\nUsername: ${amiUser}\r\nSecret: ${amiPass}\r\n\r\n${amiCommand}`,
-      });
+    // Generate SIP password secara random
+    const sip_password = crypto.randomBytes(6).toString("hex"); // 12 chars
 
-      if (response.ok) {
-        res.status(200).json({ message: "User registered successfully" });
-      } else {
-        res.status(400).json({ message: "Failed to register user" });
-      }
-    } catch (error) {
-      res.status(500).json({ message: "Server error", error });
-    }
-  } else {
-    res.status(405).json({ message: "Method Not Allowed" });
+    // Simpan ke DB
+    await db.execute(
+      `INSERT INTO users (username, email, password_hash, sip_password) VALUES (?, ?, ?, ?)`,
+      [username, email || null, password_hash, sip_password]
+    );
+
+    return NextResponse.json({ message: "User registered successfully" });
+  } catch (error: any) {
+    console.error("Register error:", error);
+    return NextResponse.json(
+      { message: "Error during registration", error: error.message },
+      { status: 500 }
+    );
   }
 }

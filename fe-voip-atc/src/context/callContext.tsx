@@ -5,7 +5,7 @@ import { Inviter, Session, UserAgent } from "sip.js";
 
 interface Participant {
   id: string;
-  name: string;
+  username: string;
   avatar: string;
   isSpeaking: boolean;
 }
@@ -22,31 +22,8 @@ interface CallContextType {
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
-const sipUri = UserAgent.makeURI("sip:username@domain.com");
-const sipUserAgent = new UserAgent({
-  uri: sipUri!,
-  transportOptions: { server: "wss://your-sip-server.com" },
-  authorizationUsername: "username",
-  authorizationPassword: "password",
-});
 
-// Coba start manual
-sipUserAgent
-  .start()
-  .then(() => {
-    console.log("SIP UserAgent started:", sipUserAgent);
-  })
-  .catch((error) => {
-    console.error("Failed to start UserAgent:", error);
-  });
-
-export function CallProvider({
-  children,
-  userAgent,
-}: {
-  children: React.ReactNode;
-  userAgent: UserAgent;
-}) {
+export function CallProvider(userAgent : UserAgent ) {
   const [isInCall, setIsInCall] = useState(false);
   const [caller, setCaller] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -91,7 +68,7 @@ export function CallProvider({
       setParticipants([
         {
           id: crypto.randomUUID(),
-          name: username,
+          username: username,
           avatar: `https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png`,
           isSpeaking: false,
         },
@@ -129,9 +106,7 @@ export function CallProvider({
         endCall,
         callSession,
       }}
-    >
-      {children}
-    </CallContext.Provider>
+    ></CallContext.Provider>
   );
 }
 

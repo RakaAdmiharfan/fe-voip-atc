@@ -1,127 +1,104 @@
 "use client";
-import Button from "@/components/button";
-import TextField from "@/components/textfield";
-import Toast from "@/components/toast";
-import Link from "next/link";
-// import { get, put } from "@/services/api";
+
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import React from "react";
-import { useEffect, useState } from "react";
-// import { useDispatch, useSelector } from "react-redux";
-import { toast } from "react-toastify";
+import Link from "next/link";
+import axios from "axios";
+
+import TextField from "@/components/textfield";
+import Button from "@/components/button";
+import Toast from "@/components/toast";
 
 export default function Register() {
-  const [username, setUsername] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isPageLoading, setIsPageLoading] = useState<boolean>(true);
-  const [isError, setIsError] = useState<boolean>(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const router = useRouter();
-  // const dispatch = useDispatch();
 
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const response = await get("customization/current");
-  //       const data = response.data.data;
-  //     } catch (error) {
-  //       console.error("Error fetching customization data:", error);
-  //     } finally {
-  //       setIsPageLoading(false);
-  //     }
-  //   };
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage("");
 
-  //   fetchData();
-  // }, [dispatch]);
+    if (!username || !password) {
+      setErrorMessage("Username dan password wajib diisi.");
+      setIsLoading(false);
+      return;
+    }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    // e.preventDefault();
-    // const data = {
-    //   username: username,
-    //   password: password,
-    // };
-    // setIsLoading(true);
-    // try {
-    //   const response = await put(`complete-register/${id}`, data);
-    //   if (response.status === 200) {
-    //     router.push("/login");
-    //     toast.success("Register Berhasil.");
-    //   } else {
-    //     setIsError(true);
-    //     console.error(response.data);
-    //   }
-    // } catch (error) {
-    //   console.error(error);
-    //   setIsError(true);
-    // } finally {
-    //   setIsLoading(false);
-    // }
+    try {
+      const response = await axios.post("/api/register", {
+        username,
+        password,
+      });
+
+      if (response.status === 200) {
+        router.push("/login");
+      } else {
+        setErrorMessage(response.data.message || "Registrasi gagal.");
+      }
+    } catch (err: any) {
+      console.error("Register Error:", err);
+      setErrorMessage(
+        err.response?.data?.message || "Terjadi kesalahan saat register."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="w-screen h-screen bg-[#1e1f22] bg-cover flex flex-col justify-center items-center gap-6">
-      {/* {isPageLoading && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-white text-sm font-medium">Loading...</p>
-          </div>
-        </div>
-      )} */}
-      <div className={`${isError ? "block" : "hidden"}`}>
-        <Toast
-          type={"error"}
-          title={"Gagal Register"}
-          description={"Pastikan semua field terisi dengan benar."}
-          onClick={() => setIsError(false)}
-        />
-      </div>
-      <div className="w-auto h-auto flex flex-col items-center bg-white rounded-[20px] drop-shadow-2xl shadow-[#0A0D1224] p-5 md:p-6">
-        <p className="text-[#181D27] text-[24px] md:text-[30px] font-semibold mt-6">
+    <div className="min-h-screen bg-[#1e1f22] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+        <h2 className="text-3xl font-bold text-center text-gray-900">
           Register
+        </h2>
+        <p className="text-center text-gray-500 mb-6">
+          Welcome! Please sign up for your account.
         </p>
-        <p className="text-[#535862] text-[12px] md:text-[16px] font-normal mt-3 mb-6 md:mb-8">
-          Welcome! Please sign up your account.
-        </p>
-        <TextField
-          name={"username"}
-          type={"field"}
-          placeholder={"Masukkan username"}
-          label={"Username"}
-          value={username}
-          onChange={(val) => setUsername(val.target.value)}
-        />
-        <TextField
-          name={"password"}
-          type={"password"}
-          placeholder={"Masukkan password"}
-          label={"Password"}
-          value={password}
-          onChange={(val) => setPassword(val.target.value)}
-        />
-        <p className="text-[#535862] text-[10px] md:text-[14px] font-normal my-3 md:my-6">
-          Have an Account?{" "}
-          <Link
-            href="/login"
-            className="text-blue-500 font-medium hover:underline"
-          >
-            Login
+
+        {errorMessage && (
+          <Toast
+            type="error"
+            title="Register Failed"
+            description={errorMessage}
+            onClick={() => setErrorMessage("")}
+          />
+        )}
+
+        <form onSubmit={handleRegister} className="space-y-4">
+          <TextField
+            name="username"
+            type="field"
+            label="Username"
+            placeholder="Enter your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <TextField
+            name="password"
+            type="password"
+            label="Password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button
+            type="submit"
+            text="Register"
+            isLoading={isLoading}
+            color="black"
+          />
+        </form>
+
+        <p className="text-sm text-center text-gray-600 mt-4">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-600 hover:underline">
+            Login here
           </Link>
         </p>
-        <Button
-          text={"Register"}
-          type={"submit"}
-          onClick={handleLogin}
-          isLoading={isLoading}
-          color="black"
-        />
-      </div>
-      <div className={`${isError ? "invisible" : "hidden"}`}>
-        <Toast
-          type={"error"}
-          title={"Gagal Register"}
-          description={"Pastikan semua field terisi dengan benar."}
-        />
       </div>
     </div>
   );
