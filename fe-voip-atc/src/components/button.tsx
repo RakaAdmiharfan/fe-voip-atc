@@ -29,7 +29,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       onSubmit={onSubmit}
-      className={`${width == 350 ? "py-4" : "py-[10px]"} rounded-[8px] mt-2 ${
+      className={`${width == 350 ? "p-4" : "p-[10px]"} rounded-[8px] mt-2 ${
         disable
           ? "bg-[#D1D1D6]"
           : color == "primary"
@@ -41,7 +41,7 @@ export default function Button({
           : color == "tersier"
           ? "bg-navy-900"
           : color == "black"
-          ? "bg-gray-950"
+          ? "bg-[#202225]"
           : "bg-white border-[1px] border-[#D5D7DA]"
       }`}
     >

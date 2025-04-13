@@ -16,16 +16,49 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Hash password untuk login web
+    // Hash untuk login web
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Generate SIP password secara random
-    const sip_password = crypto.randomBytes(6).toString("hex"); // 12 chars
+    // SIP password (acak)
+    const sip_password = crypto.randomBytes(6).toString("hex");
 
-    // Simpan ke DB
+    // Simpan ke tabel users
     await db.execute(
       `INSERT INTO users (username, email, password_hash, sip_password) VALUES (?, ?, ?, ?)`,
       [username, email || null, password_hash, sip_password]
+    );
+
+    // Simpan ke ps_auths
+    await db.execute(
+      `INSERT INTO ps_auths (id, auth_type, username, password) VALUES (?, 'userpass', ?, ?)`,
+      [username, username, sip_password]
+    );
+
+    // Simpan ke ps_aors
+    await db.execute(`INSERT INTO ps_aors (id, max_contacts) VALUES (?, 1)`, [
+      username,
+    ]);
+
+    // Simpan ke ps_endpoints
+    await db.execute(
+      `INSERT INTO ps_endpoints (
+        id, transport, aors, auth, context, disallow, allow,
+        direct_media, dtmf_mode, rewrite_contact, rtp_symmetric, force_rport
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        username,
+        "transport-wss", // atau transport name yang kamu pakai di pjsip.conf
+        username,
+        username,
+        "public", // context dari extensions.conf
+        "all",
+        "opus,ulaw", // codec dari WebRTC
+        "no",
+        "auto",
+        "yes",
+        "yes",
+        "yes",
+      ]
     );
 
     return NextResponse.json({ message: "User registered successfully" });

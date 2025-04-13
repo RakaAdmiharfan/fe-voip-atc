@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
+import { signJwt } from "@/lib/jwt";
+import { cookies } from "next/headers";
 
-// POST /api/login
 export async function POST(req: Request) {
   const body = await req.json();
-  const { username, password } = body;
+  const username = body.username?.trim();
+  const password = body.password;
 
   if (!username || !password) {
     return NextResponse.json(
@@ -21,24 +23,31 @@ export async function POST(req: Request) {
     );
 
     const user = rows[0];
-    if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
 
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    if (!passwordMatch) {
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return NextResponse.json(
-        { message: "Invalid password" },
+        { message: "Invalid username or password" },
         { status: 401 }
       );
     }
 
-    // Konfigurasi untuk SIP.js
+    // ✅ Generate JWT
+    const token = signJwt({ id: user.id, username: user.username });
+
+    // ✅ Simpan cookie (pakai await)
+    const cookieStore = await cookies();
+    cookieStore.set("token", token, {
+      httpOnly: true,
+      path: "/",
+      maxAge: 60 * 60 * 24, // 1 day
+      secure: process.env.NODE_ENV === "production",
+    });
+
     const sipConfig = {
       username: user.username,
       password: user.sip_password,
-      domain: "108.136.142.174", // ganti sesuai domain Asterisk kamu
-      wss: "wss://108.136.142.174:8089/ws", // ganti sesuai WSS Asterisk kamu
+      domain: "sip.pttalk.id",
+      wss: "wss://sip.pttalk.id:8089/ws",
     };
 
     return NextResponse.json({

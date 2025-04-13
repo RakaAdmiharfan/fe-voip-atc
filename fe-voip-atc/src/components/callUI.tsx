@@ -1,17 +1,18 @@
 "use client";
+
 import { useCall } from "@/context/callContext";
-import { IoMicOff, IoMic, IoCall } from "react-icons/io5";
+import { IoMicOff, IoMic, IoCall, IoClose } from "react-icons/io5";
 import { useState, useEffect } from "react";
-import { Session, SessionState } from "sip.js";
+import { SessionState } from "sip.js";
 
 export default function CallUI() {
-  const { isInCall, callSession, participants, endCall } = useCall();
-
+  const { currentSession, callState, participants, endCall, acceptCall } =
+    useCall();
   const [muted, setMuted] = useState(false);
   const [callStatus, setCallStatus] = useState("Ringing");
 
   useEffect(() => {
-    if (!callSession) return;
+    if (!currentSession) return;
 
     const handleStateChange = (state: SessionState) => {
       console.log("Call state changed:", state);
@@ -22,75 +23,88 @@ export default function CallUI() {
       }
     };
 
-    callSession.stateChange.addListener(handleStateChange);
+    currentSession.stateChange.addListener(handleStateChange);
 
     return () => {
-      callSession.stateChange.removeListener(handleStateChange);
+      currentSession.stateChange.removeListener(handleStateChange);
     };
-  }, [callSession]);
+  }, [currentSession]);
 
-  if (!isInCall) return null;
+  if (callState === "idle") return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[#1e1f22] rounded-xl p-6 w-[90vw] h-[90vh] flex flex-col items-center shadow-lg">
-        {/* Call Status */}
-        <div className="text-gray-300 text-lg mb-4 flex items-center gap-2">
-          {callStatus === "Ringing" && (
-            <span className="w-3 h-3 bg-yellow-400 rounded-full animate-ping"></span>
-          )}
-          {callStatus}...
-        </div>
+    <div className="absolute inset-0 z-50 bg-[#2f3136] text-white flex flex-col px-8 py-6">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between border-b border-[#40444b] pb-4">
+        <h2 className="text-lg font-semibold text-white">{callStatus}</h2>
+      </div>
 
-        {/* Participants Grid */}
+      {/* Participants */}
+      <div className="flex-1 flex items-center justify-center">
         <div
-          className={`grid gap-4 w-full ${
+          className={`grid gap-10 w-full max-w-6xl px-4 py-10 ${
             participants.length === 1
               ? "grid-cols-1"
-              : participants.length <= 4
+              : participants.length === 2
               ? "grid-cols-2"
+              : participants.length <= 4
+              ? "grid-cols-2 md:grid-cols-4"
               : "grid-cols-3 md:grid-cols-4"
           }`}
         >
           {participants.map((user) => (
             <div
               key={user.id}
-              className={`relative flex flex-col items-center p-4 rounded-xl transition ${
-                muted && user.id === "self" ? "bg-red-700/50" : "bg-gray-700"
-              }`}
+              className="flex flex-col items-center p-6 rounded-xl bg-[#292b2f] hover:bg-[#40444b] transition min-h-[200px]"
             >
-              <div className="w-24 h-24 rounded-full border-4 border-gray-500 overflow-hidden flex items-center justify-center bg-gray-800">
-                <img
-                  src={user.avatar}
-                  alt={user.username}
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#202225] bg-[#202225] flex items-center justify-center shadow-md">
+                <img src={user.avatar} className="w-full h-full object-cover" />
               </div>
-              <span className="mt-2 text-gray-300 text-sm">{user.username}</span>
+              <span className="mt-5 text-base justify-center items-center font-medium text-gray-200">
+                {user.username}
+              </span>
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Control Buttons */}
-        <div className="mt-auto flex gap-6 pb-4">
-          <button
-            onClick={() => setMuted(!muted)}
-            className={`p-4 rounded-full transition text-white ${
-              muted
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-[#40444b] hover:bg-[#525760]"
-            }`}
-          >
-            {muted ? <IoMicOff size={28} /> : <IoMic size={28} />}
-          </button>
-
-          <button
-            onClick={endCall}
-            className="p-4 bg-red-600 rounded-full hover:bg-red-700 transition text-white"
-          >
-            <IoCall size={28} />
-          </button>
-        </div>
+      {/* Controls */}
+      <div className="mt-auto flex justify-center gap-6 border-t border-[#40444b] pt-6">
+        {callState === "ringing" ? (
+          <>
+            <button
+              onClick={acceptCall}
+              className="p-4 rounded-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              <IoCall size={28} />
+            </button>
+            <button
+              onClick={endCall}
+              className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white"
+            >
+              <IoClose size={28} />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setMuted(!muted)}
+              className={`p-4 rounded-full text-white transition ${
+                muted
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-[#40444b] hover:bg-[#525760]"
+              }`}
+            >
+              {muted ? <IoMicOff size={28} /> : <IoMic size={28} />}
+            </button>
+            <button
+              onClick={endCall}
+              className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white"
+            >
+              <IoCall size={28} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

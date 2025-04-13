@@ -1,9 +1,8 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserAgent, Registerer } from "sip.js";
 import axios from "axios";
-
 import TextField from "@/components/textfield";
 import Button from "@/components/button";
 import Toast from "@/components/toast";
@@ -24,26 +23,14 @@ export default function LoginPage() {
 
     try {
       const response = await axios.post("/api/login", { username, password });
-      console.log("Login Response:", response.data);
-
       const { sipConfig } = response.data;
 
       if (!sipConfig) throw new Error("Invalid SIP configuration from backend");
 
-      // Setup SIP UserAgent
-      const userAgent = new UserAgent({
-        uri: UserAgent.makeURI(
-          `sip:${sipConfig.username}@${sipConfig.domain}`
-        )!,
-        transportOptions: { server: sipConfig.wss },
-        authorizationUsername: sipConfig.username,
-        authorizationPassword: sipConfig.password,
-      });
+      // ✅ Simpan ke localStorage (biar bisa dipakai oleh useSip di layout setelah login)
+      localStorage.setItem("sipConfig", JSON.stringify(sipConfig));
 
-      await userAgent.start();
-      const registerer = new Registerer(userAgent);
-      await registerer.register();
-
+      // ✅ Arahkan user ke halaman dashboard (yang di dalam VoIPProvider)
       router.push("/contact");
     } catch (error: any) {
       console.error("Login Error:", error);

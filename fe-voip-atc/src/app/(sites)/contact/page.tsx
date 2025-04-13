@@ -1,151 +1,192 @@
 "use client";
-import { useState, useCallback, useEffect, useRef } from "react";
-import VoIPComponent from "@/context/voipComponent";
-import Button from "@/components/button";
-import TextField from "@/components/textfield";
-import { MdEdit } from "react-icons/md";
+
+import { useEffect, useState } from "react";
 import { IoCallSharp } from "react-icons/io5";
+import { MdEdit } from "react-icons/md";
 import { FaTrash } from "react-icons/fa";
-import { UserAgent, Inviter, URI, SessionState } from "sip.js";
+import TextField from "@/components/textfield";
+import { useVoIP } from "@/context/voipContext";
+import { Inviter, UserAgent } from "sip.js";
 import ModalAdd from "@/components/modal-add";
-import CallUI from "@/components/callUI";
+import Button from "@/components/button";
 import { useCall } from "@/context/callContext";
 
+interface Contact {
+  id: string;
+  username: string;
+  name?: string;
+}
+
 export default function ContactPage() {
-  const [contacts, setContacts] = useState([
-    { contact_id: 101, username: "user7@gmail.com", name: "John Doe" },
-    { contact_id: 102, username: "janedoe", name: "Jane Doe" },
-    { contact_id: 103, username: "alexsmith", name: "Alex Smith" },
-  ]);
-  const [sipUserAgent, setSipUserAgent] = useState<UserAgent | null>(null);
-  const [callState, setCallState] = useState("");
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState<{ username: string; name?: string }>({
     username: "",
+    name: "",
   });
+  const [modalOpen, setModalOpen] = useState(false);
+  const { userAgent } = useVoIP();
+  const { startCall } = useCall();
+  const [calling, setCalling] = useState(false);
 
-  const ws = useRef<WebSocket | null>(null);
-
-  // Inisialisasi WebSocket saat halaman dimuat
-  useEffect(() => {
-    ws.current = new WebSocket("wss://localhost:3000/api/websocket");
-
-    ws.current.onopen = () => {
-      console.log("Connected to WebSocket server");
-    };
-
-    ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log("Received WebSocket message:", data);
-    };
-
-    ws.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    ws.current.onclose = () => {
-      console.log("WebSocket disconnected");
-    };
-
-    return () => {
-      if (ws.current) ws.current.close();
-    };
-  }, []);
-
-  // Fungsi untuk melakukan panggilan
-  const handleCall = async (username: string) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({ action: "call", username }));
-    } else {
-      console.error("WebSocket is not connected");
+  const fetchContacts = async () => {
+    try {
+      const res = await fetch("/api/contacts");
+      const data = await res.json();
+      setContacts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch contacts", err);
     }
   };
 
+  useEffect(() => {
+    fetchContacts();
+  }, []);
+
+  const handleCall = async (username: string) => {
+    console.log("🔍 userAgent", userAgent);
+    console.log("🔍 calling", calling);
+
+    if (!userAgent || calling) {
+      console.warn("❌ Cannot proceed: userAgent null or already calling");
+      return;
+    }
+
+    setCalling(true);
+    try {
+      const targetURI = `sip:${username}@sip.pttalk.id`;
+      console.log("📞 Calling", targetURI);
+
+      const inviter = new Inviter(userAgent, UserAgent.makeURI(targetURI)!);
+      startCall(username);
+      await inviter.invite();
+    } catch (err) {
+      console.error("Call failed", err);
+    } finally {
+      setCalling(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const res = await fetch(`/api/contacts?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setContacts((prev) => prev.filter((c) => c.id !== id));
+    }
+  };
+
+  const handleAddContact = async () => {
+    if (!form.username.trim()) return;
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        fetchContacts();
+        setForm({ username: "", name: "" });
+        setModalOpen(false);
+      } else {
+        const data = await res.json();
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error("Failed to add contact", error);
+    }
+  };
+
+  const filteredContacts = contacts.filter((contact) =>
+    contact.username.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div>
-      {/* SIP Initialization */}
-      {showAddModal && (
+    <>
+      {modalOpen && (
         <ModalAdd
-          title="Tambah Akun"
-          formData={formData}
-          setFormData={setFormData}
-          button1Text="Batalkan"
-          button2Text="Tambah"
-          onButton1Click={() => setShowAddModal(false)}
-          onButton2Click={() => setShowAddModal(false)}
-          isEdit={false}
+          title="Add New Contact"
+          formData={form}
+          setFormData={setForm}
+          button1Text="Cancel"
+          button2Text="Add"
+          onButton1Click={() => setModalOpen(false)}
+          onButton2Click={handleAddContact}
         />
       )}
 
-      <h1 className="text-2xl font-bold mb-4">Contact List</h1>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h1 className="text-3xl font-bold text-white">Contacts</h1>
+        </div>
 
-      {/* Search & Add Contact */}
-      <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
-        <div className="w-52 md:w-80">
-          <TextField
-            name="Search"
-            type="search"
-            placeholder="Search"
-            onChange={(e) => setSearch(e.target.value)}
-            label={""}
+        <div className="flex flex-row justify-between">
+          <div className="w-full sm:w-80">
+            <TextField
+              name="search"
+              type="search"
+              placeholder="Search by username"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              label=""
+            />
+          </div>
+
+          <Button
+            text="Add Contact"
+            type="button"
+            onClick={() => setModalOpen(true)}
+            color="black"
+            width={120}
           />
         </div>
-        <Button
-          text="Tambah Akun"
-          width={170}
-          onClick={() => setShowAddModal(true)}
-          color="primary"
-          type={undefined}
-        />
-      </div>
 
-      {/* Contact Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-b border-gray-200 rounded-lg">
-          <tbody>
-            {contacts
-              .filter(
-                (contact) =>
-                  contact.name.toLowerCase().includes(search.toLowerCase()) ||
-                  contact.username.toLowerCase().includes(search.toLowerCase())
-              )
-              .map((contact) => (
-                <tr key={contact.contact_id} className="text-center border-b">
-                  <td className="p-8 border-b">{contact.contact_id}</td>
-                  <td className="p-8 border-b">{contact.username}</td>
-                  <td className="p-8 border-b">{contact.name}</td>
-                  <td className="p-8 border-b gap-6 flex justify-center">
+        <div className="overflow-hidden rounded-xl shadow-sm">
+          <table className="min-w-full">
+            <tbody>
+              {filteredContacts.map((contact) => (
+                <tr key={contact.id} className="border-b border-gray-600">
+                  <td className="px-6 py-4 text-lg font-medium text-white">
+                    {contact.username}
+                  </td>
+                  <td className="px-6 py-4 text-lg text-center text-white">
+                    {contact.name || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-right space-x-4">
                     <button
-                      onClick={() => setShowAddModal(true)}
-                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-300 transition"
+                      onClick={() => {
+                        console.log(
+                          "☎️ Call button clicked for",
+                          contact.username
+                        );
+                        handleCall(contact.username);
+                      }}
+                      className="p-2 rounded-full bg-white text-gray-600"
                     >
-                      <MdEdit size={20} className="text-white" />
+                      <IoCallSharp size={18} />
+                    </button>
+
+                    <button className="p-2 rounded-full bg-white text-gray-600">
+                      <MdEdit size={18} />
                     </button>
                     <button
-                      onClick={() =>
-                        setContacts(
-                          contacts.filter(
-                            (c) => c.contact_id !== contact.contact_id
-                          )
-                        )
-                      }
-                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-300 transition"
+                      onClick={() => handleDelete(contact.id)}
+                      className="p-2 rounded-full bg-white text-gray-600"
                     >
-                      <FaTrash size={20} className="text-white" />
-                    </button>
-                    <button
-                      onClick={() => handleCall(contact.username)}
-                      className="p-2 bg-orange-400 rounded-full hover:bg-gray-300 transition"
-                    >
-                      <IoCallSharp size={20} className="text-white" />
+                      <FaTrash size={18} />
                     </button>
                   </td>
                 </tr>
               ))}
-          </tbody>
-        </table>
+              {filteredContacts.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="text-center py-8 text-gray-500">
+                    No contacts found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

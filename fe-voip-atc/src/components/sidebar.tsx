@@ -1,18 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FaBars, FaChevronDown, FaChevronUp } from "react-icons/fa";
-import { MdFolderShared, MdHistory } from "react-icons/md";
+import { FaBars } from "react-icons/fa";
 import { usePathname, useRouter } from "next/navigation";
 import { IoPersonCircleSharp } from "react-icons/io5";
-import { BsGrid3X3GapFill } from "react-icons/bs";
+import { FaSquarePhone } from "react-icons/fa6";
+import { FaHeadphonesAlt } from "react-icons/fa";
 import { LuLogOut } from "react-icons/lu";
 import ModalApprove from "./modal-approval";
-import { RiBankLine } from "react-icons/ri";
 import { useSearchParams } from "next/navigation";
 import Cookies from "universal-cookie";
 // import { postWithAuth } from "@/services/api";
-import { useSelector } from "react-redux";
 import Image from "next/image";
 
 const Sidebar = () => {
@@ -89,33 +87,33 @@ const Sidebar = () => {
         } z-40 overflow-hidden`}
       >
         <button
-          className={`absolute top-4 left-4 lg:hidden z-20 bg-white hover:text-black p-2 rounded-md `}
+          className={`absolute top-4 left-5 lg:hidden z-20 bg-white hover:text-black p-2 rounded-md `}
           onClick={() => {
             setIsMobileOpen((prev) => !prev);
             setInstitutionDataOpen(false);
             setUserDataOpen(false);
           }}
         >
-          <FaBars className="w-6 h-6 text-gray-700" />
+          <FaBars className="w-4 h-4 text-gray-700" />
         </button>
         <nav
-          className={`flex flex-col h-full bg-white border-r border-[#E6E7EC] transition-all duration-300 ${
+          className={`flex flex-col h-full bg-[#292b2f] transition-all duration-300 ${
             isMobileOpen ? "w-60" : "w-[72px]"
           } lg:w-60`}
         >
           {/* Header */}
-          <div className="p-4 border-b border-[#EDEEF3]">
-            <div className="p-0 lg:p-4 border-b border-[#EDEEF3] flex rounded-2xl gap-4">
+          <div className="p-8 lg:p-4 border-b border-[#40444b]">
+            <div className="p-0 lg:p-2 flex rounded-2xl gap-4">
               <Image
                 src={"next.svg"}
                 alt={"Logo"}
-                className={`w-10 justify-center items-center transition-transform duration-300 `}
+                className={`w-10 hidden lg:block justify-center items-center transition-transform duration-300 bg-[#40444b] p-2 rounded-lg`}
                 width={10}
                 height={10}
               />
               <div className="my-auto hidden lg:block">
-                <h1 className="text-[15px] font-bold text-black">Username</h1>
-                <h2 className="text-[14px] text-black">email</h2>
+                <h1 className="text-[15px] font-bold text-white">Username</h1>
+                <h2 className="text-[14px] text-white">email</h2>
               </div>
             </div>
           </div>
@@ -126,10 +124,10 @@ const Sidebar = () => {
             <li>
               <Link
                 href="/contact"
-                className={`flex items-center p-2 rounded-lg ${
+                className={`flex items-center lg:p-2 rounded-lg ${
                   active === 1
-                    ? `text-white font-semibold border bg-orange-400`
-                    : `text-orange-400 hover:text-black`
+                    ? `text-white font-semibold lg:bg-[#40444b]`
+                    : `text-white hover:bg-[#2f3136]`
                 }`}
               >
                 <IoPersonCircleSharp className="w-6 h-6" />
@@ -147,14 +145,14 @@ const Sidebar = () => {
             <li className="mt-4">
               <Link
                 href="/channel"
-                className={`flex items-center p-2 rounded-lg ${
+                className={`flex items-center lg:p-2 rounded-lg ${
                   active === 3
-                    ? `text-white font-semibold border bg-orange-400`
-                    : `text-orange-400 hover:text-black hover:bg-orange-100`
+                    ? `text-white font-semibold lg:bg-[#40444b]`
+                    : `text-white hover:bg-[#2f3136]`
                 }`}
                 // onClick={() => setIsMobileOpen(false)}
               >
-                <IoPersonCircleSharp className="w-6 h-6" />
+                <FaHeadphonesAlt className="w-5 h-5 rounded-full" />
                 <span
                   className={`${
                     navOpen || isMobileOpen ? "block" : "hidden"
@@ -169,14 +167,14 @@ const Sidebar = () => {
             <li className="mt-4">
               <Link
                 href="/call-list"
-                className={`flex items-center p-2 rounded-lg ${
+                className={`flex items-center lg:p-2 rounded-lg ${
                   active === 2
-                    ? `text-white font-semibold border bg-orange-400`
-                    : `text-orange-400 hover:text-black hover:bg-orange-100`
+                    ? `text-white font-semibold lg:bg-[#40444b]`
+                    : `text-white hover:bg-[#2f3136]`
                 }`}
                 // onClick={() => setIsMobileOpen(false)}
               >
-                <IoPersonCircleSharp className="w-6 h-6" />
+                <FaSquarePhone className="w-6 h-6 rounded-full" />
                 <span
                   className={`${
                     navOpen || isMobileOpen ? "block" : "hidden"
@@ -189,28 +187,13 @@ const Sidebar = () => {
           </ul>
 
           {/* Footer */}
-          <div
-            className={`w-full flex justify-center items-center mx-6 lg:mx-auto py-6 border-t border-gray-200`}
-          >
-            <div className="flex items-center">
-              <div
-                className={`${
-                  navOpen || isMobileOpen ? "block" : "hidden"
-                } ml-2 lg:block`}
-              >
-                <p className="text-[#181D27] text-sm font-semibold">
-                  {username}
-                </p>
-                <p className="text-[#535862] text-sm font-normal">{email}</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowModal(true);
-                }}
-              >
-                <LuLogOut className="text-lg text-gray-600 ml-8" />
-              </button>
-            </div>
+          <div className="w-full flex justify-center p-4 border-t border-[#40444b]">
+            <button
+              onClick={() => setShowModal(true)}
+              className="p-2 rounded-full transition"
+            >
+              <LuLogOut className="text-xl text-white hover:text-red-500" />
+            </button>
           </div>
         </nav>
       </aside>
