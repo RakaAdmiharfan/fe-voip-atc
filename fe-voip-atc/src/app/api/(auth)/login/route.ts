@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     });
 
     const sipConfig = {
-      username: user.username,
+      username: user.id.toString(), // gunakan sipId (numeric)
       password: user.sip_password,
       domain: "sip.pttalk.id",
       wss: "wss://sip.pttalk.id:8089/ws",

@@ -22,7 +22,10 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      const response = await axios.post("/api/login", { username, password });
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/login`,
+        { username, password }
+      );
       const { sipConfig } = response.data;
 
       if (!sipConfig) throw new Error("Invalid SIP configuration from backend");

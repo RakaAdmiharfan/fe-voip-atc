@@ -12,9 +12,10 @@ import Button from "@/components/button";
 import { useCall } from "@/context/callContext";
 
 interface Contact {
-  id: string;
-  username: string;
+  id: string; // contact_id
+  username: string; // display username (e.g. tes4)
   name?: string;
+  sipId: string; // actual SIP ID used in signaling
 }
 
 export default function ContactPage() {
@@ -31,8 +32,11 @@ export default function ContactPage() {
 
   const fetchContacts = async () => {
     try {
-      const res = await fetch("/api/contacts");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/contacts`
+      );
       const data = await res.json();
+      console.log("Fetched contacts:", data);
       setContacts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch contacts", err);
@@ -43,22 +47,18 @@ export default function ContactPage() {
     fetchContacts();
   }, []);
 
-  const handleCall = async (username: string) => {
-    console.log("🔍 userAgent", userAgent);
-    console.log("🔍 calling", calling);
-
-    if (!userAgent || calling) {
-      console.warn("❌ Cannot proceed: userAgent null or already calling");
+  const handleCall = async (sipId: string) => {
+    if (!userAgent || calling || !sipId) {
+      console.warn("SIP call blocked: userAgent or sipId invalid.");
       return;
     }
 
     setCalling(true);
     try {
-      const targetURI = `sip:${username}@sip.pttalk.id`;
-      console.log("📞 Calling", targetURI);
-
+      const targetURI = `sip:${sipId}@sip.pttalk.id`;
+      console.log("📞 Calling URI:", targetURI);
       const inviter = new Inviter(userAgent, UserAgent.makeURI(targetURI)!);
-      startCall(username);
+      startCall(sipId);
       await inviter.invite();
     } catch (err) {
       console.error("Call failed", err);
@@ -67,21 +67,29 @@ export default function ContactPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const res = await fetch(`/api/contacts?id=${id}`, { method: "DELETE" });
+  const handleDelete = async (contactId: string) => {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/contacts?id=${contactId}`,
+      {
+        method: "DELETE",
+      }
+    );
     if (res.ok) {
-      setContacts((prev) => prev.filter((c) => c.id !== id));
+      setContacts((prev) => prev.filter((c) => c.id !== contactId));
     }
   };
 
   const handleAddContact = async () => {
     if (!form.username.trim()) return;
     try {
-      const res = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await fetch(
+        "${process.env.NEXT_PUBLIC_API_BASE_URL}/contacts",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        }
+      );
       if (res.ok) {
         fetchContacts();
         setForm({ username: "", name: "" });
@@ -114,12 +122,10 @@ export default function ContactPage() {
       )}
 
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h1 className="text-3xl font-bold text-white">Contacts</h1>
-        </div>
+        <h1 className="text-2xl font-bold mb-4 text-white">Contacts</h1>
 
-        <div className="flex flex-row justify-between">
-          <div className="w-full sm:w-80">
+        <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
+          <div className="w-52 md:w-80">
             <TextField
               name="search"
               type="search"
@@ -135,7 +141,7 @@ export default function ContactPage() {
             type="button"
             onClick={() => setModalOpen(true)}
             color="black"
-            width={120}
+            width={170}
           />
         </div>
 
@@ -146,24 +152,20 @@ export default function ContactPage() {
                 <tr key={contact.id} className="border-b border-gray-600">
                   <td className="px-6 py-4 text-lg font-medium text-white">
                     {contact.username}
+                    <span className="text-xs text-gray-400 ml-2">
+                      (SIP ID: {contact.sipId})
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-lg text-center text-white">
                     {contact.name || "-"}
                   </td>
                   <td className="px-6 py-4 text-right space-x-4">
                     <button
-                      onClick={() => {
-                        console.log(
-                          "☎️ Call button clicked for",
-                          contact.username
-                        );
-                        handleCall(contact.username);
-                      }}
+                      onClick={() => handleCall(contact.sipId)}
                       className="p-2 rounded-full bg-white text-gray-600"
                     >
                       <IoCallSharp size={18} />
                     </button>
-
                     <button className="p-2 rounded-full bg-white text-gray-600">
                       <MdEdit size={18} />
                     </button>

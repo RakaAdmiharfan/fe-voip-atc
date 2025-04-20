@@ -1,4 +1,5 @@
 "use client";
+
 import {
   createContext,
   useContext,
@@ -44,19 +45,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   >("idle");
   const [participants, setParticipants] = useState<Participant[]>([]);
 
+  const setupAudioElement = (stream: MediaStream) => {
+    const audio = document.createElement("audio");
+    audio.srcObject = stream;
+    audio.autoplay = true;
+    (audio as any).playsInline = true;
+    audio.volume = 1;
+    audio.style.display = "none";
+    document.body.appendChild(audio);
+  };
+
   const startCall = useCallback((username: string) => {
     const self: Participant = {
       id: "self",
       username: "You",
       avatar: "/avatar/self.png",
     };
-
     const target: Participant = {
       id: username,
       username,
       avatar: "/avatar/user.png",
     };
-
     setParticipants([self, target]);
     setCallState("calling");
   }, []);
@@ -70,21 +79,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       username: "You",
       avatar: "/avatar/self.png",
     };
-
     const caller = invitation.remoteIdentity.uri.user || "unknown";
-
     const from: Participant = {
       id: caller,
       username: caller,
       avatar: "/avatar/user.png",
     };
-
     setParticipants([from, self]);
   }, []);
 
   const acceptCall = useCallback(async () => {
     if (!incomingSession) return;
-
     try {
       await incomingSession.accept();
       setCurrentSession(incomingSession);
@@ -98,13 +103,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   const declineCall = useCallback(() => {
     if (!incomingSession) return;
-
     try {
       incomingSession.reject();
     } catch (error) {
       console.error("Failed to decline call:", error);
     }
-
     setIncomingSession(null);
     setCallState("idle");
     setParticipants([]);
@@ -117,7 +120,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
 
     const handleTermination = () => {
-      console.log("[📴 Call Terminated by endCall()]");
+      console.log("[📴 Call Terminated]");
       setCurrentSession(null);
       setIncomingSession(null);
       setCallState("idle");
@@ -126,9 +129,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
     try {
       currentSession.stateChange.addListener((newState) => {
-        if (newState === SessionState.Terminated) {
-          handleTermination();
-        }
+        if (newState === SessionState.Terminated) handleTermination();
       });
 
       if (currentSession instanceof Inviter) {
@@ -136,15 +137,58 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       } else if (currentSession instanceof Invitation) {
         currentSession.bye();
       } else {
-        handleTermination(); // fallback
+        handleTermination();
       }
     } catch (error) {
-      console.error("Failed to end call:", error);
+      console.error("Error during call termination:", error);
       handleTermination();
     }
   }, [currentSession]);
 
-  // 🔍 Debugging
+  // 🔊 Attach remote stream to <audio>
+  useEffect(() => {
+    if (!currentSession) return;
+
+    const sessionDescriptionHandler: any =
+      currentSession.sessionDescriptionHandler;
+
+    const handleRemoteStream = () => {
+      const pc: RTCPeerConnection = sessionDescriptionHandler?.peerConnection;
+      if (!pc) return;
+
+      const remoteStream = new MediaStream();
+      pc.getReceivers().forEach((receiver) => {
+        if (receiver.track?.kind === "audio") {
+          remoteStream.addTrack(receiver.track);
+        }
+      });
+
+      setupAudioElement(remoteStream);
+    };
+
+    const timer = setTimeout(() => {
+      try {
+        handleRemoteStream();
+      } catch (e) {
+        console.error("⚠️ Failed to handle remote audio stream:", e);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [currentSession]);
+
+  // 📲 Auto decline after timeout
+  useEffect(() => {
+    if (callState === "ringing") {
+      const timeout = setTimeout(() => {
+        console.log("⏱️ Auto-declining incoming call");
+        declineCall();
+      }, 30_000);
+      return () => clearTimeout(timeout);
+    }
+  }, [callState, declineCall]);
+
+  // 📞 Debugging
   useEffect(() => {
     console.log("[📞 Call State]", callState);
   }, [callState]);
@@ -169,22 +213,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       };
       currentSession.stateChange.addListener(onStateChange);
-      return () => {
-        currentSession.stateChange.removeListener(onStateChange);
-      };
+      return () => currentSession.stateChange.removeListener(onStateChange);
     }
   }, [currentSession]);
-
-  // ⏱️ Auto-decline call after 30 seconds if not answered
-  useEffect(() => {
-    if (callState === "ringing") {
-      const timeout = setTimeout(() => {
-        console.log("[⏱️ Timeout] Auto-decline incoming call");
-        declineCall();
-      }, 30_000);
-      return () => clearTimeout(timeout);
-    }
-  }, [callState, declineCall]);
 
   return (
     <CallContext.Provider

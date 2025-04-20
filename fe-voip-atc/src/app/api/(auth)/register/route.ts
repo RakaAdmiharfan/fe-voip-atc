@@ -16,52 +16,86 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Hash untuk login web
+    // Cek apakah username sudah dipakai
+    const [existing]: any = await db.execute(
+      `SELECT 1 FROM users WHERE username = ?`,
+      [username]
+    );
+
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { message: "Username already taken" },
+        { status: 409 }
+      );
+    }
+
+    // Hash password untuk login web
     const password_hash = await bcrypt.hash(password, 10);
 
-    // SIP password (acak)
+    // SIP password acak (untuk login SIP.js)
     const sip_password = crypto.randomBytes(6).toString("hex");
 
     // Simpan ke tabel users
-    await db.execute(
+    const [result]: any = await db.execute(
       `INSERT INTO users (username, email, password_hash, sip_password) VALUES (?, ?, ?, ?)`,
       [username, email || null, password_hash, sip_password]
     );
 
+    // Ambil ID auto-increment sebagai SIP ID
+    const sipId = result.insertId.toString();
+
     // Simpan ke ps_auths
     await db.execute(
       `INSERT INTO ps_auths (id, auth_type, username, password) VALUES (?, 'userpass', ?, ?)`,
-      [username, username, sip_password]
+      [sipId, sipId, sip_password]
     );
 
     // Simpan ke ps_aors
     await db.execute(`INSERT INTO ps_aors (id, max_contacts) VALUES (?, 1)`, [
-      username,
+      sipId,
     ]);
 
     // Simpan ke ps_endpoints
+    console.log(">> inserting ps_endpoints with id:", sipId);
+
     await db.execute(
       `INSERT INTO ps_endpoints (
         id, transport, aors, auth, context, disallow, allow,
-        direct_media, dtmf_mode, rewrite_contact, rtp_symmetric, force_rport
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        direct_media, dtmf_mode, rewrite_contact, rtp_symmetric, force_rport,
+        use_avpf, media_encryption, ice_support, dtls_verify, dtls_setup,
+        media_use_received_transport, rtcp_mux, webrtc
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        username,
-        "transport-wss", // atau transport name yang kamu pakai di pjsip.conf
-        username,
-        username,
-        "public", // context dari extensions.conf
+        sipId,
+        "transport-wss", // ✅ sesuaikan dengan pjsip.conf kamu
+        sipId,
+        sipId,
+        "public", // ✅ sesuaikan dengan context extensions.conf
         "all",
-        "opus,ulaw", // codec dari WebRTC
+        "opus,ulaw", // ✅ codec WebRTC
         "no",
         "auto",
         "yes",
         "yes",
         "yes",
+        "yes",
+        "dtls",
+        "yes",
+        "yes",
+        "actpass",
+        "yes",
+        "yes",
+        "yes", // ✅ nilai untuk kolom `webrtc`
       ]
     );
 
-    return NextResponse.json({ message: "User registered successfully" });
+    console.log("✅ ps_endpoints inserted");
+
+    // Sukses
+    return NextResponse.json({
+      message: "User registered successfully",
+      sipId, // bisa digunakan di frontend untuk call
+    });
   } catch (error: any) {
     console.error("Register error:", error);
     return NextResponse.json(
