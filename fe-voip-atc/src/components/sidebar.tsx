@@ -43,7 +43,6 @@ const Sidebar = () => {
       });
 
       router.push("/login");
-      window.location.reload();
     } catch (error) {
       console.error("Logout error:", error);
     }

@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import type { UserRow, ContactRow } from "@/types/db";
+import type { RowDataPacket } from "mysql2/promise";
+
+interface ContactResponse extends RowDataPacket {
+  id: number;
+  username: string;
+  sipId: string;
+  name: string | null;
+}
 
 export async function GET() {
   const session = await getSessionUser();
@@ -12,14 +20,12 @@ export async function GET() {
   }
 
   try {
-    const [contacts] = await db.execute<ContactRow[]>(
+    const [contacts] = await db.execute<ContactResponse[]>(
       `SELECT 
-        c.contact_id AS contact_id,
+        c.contact_id AS id,
         u.username AS username,
-        CAST(c.username AS CHAR) AS username,
-        c.name AS name,
-        c.user_id AS user_id,
-        c.created_at AS created_at
+        CAST(c.username AS CHAR) AS sipId,
+        c.name AS name
       FROM contacts c
       JOIN users u ON u.id = c.username
       WHERE c.user_id = ?`,
