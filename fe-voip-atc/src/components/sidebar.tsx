@@ -40,17 +40,11 @@ const Sidebar = () => {
 
   const handleLogOut = async () => {
     try {
-      // Hapus semua cookie terkait session
-      cookies.remove("token", { path: "/" });
-      cookies.remove("user_id", { path: "/" });
-      cookies.remove("role", { path: "/" });
-      cookies.remove("username", { path: "/" });
-      cookies.remove("email", { path: "/" });
+      await fetch("/api/logout", {
+        method: "POST",
+      });
 
-      // Redirect ke login page
       router.push("/login");
-
-      // Reload page (opsional kalau kamu pakai context/state global)
       window.location.reload();
     } catch (error) {
       console.error("Logout error:", error);
