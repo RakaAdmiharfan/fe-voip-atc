@@ -153,6 +153,7 @@ export default function ContactPage() {
                   </td>
                   <td className="px-6 py-4 text-right space-x-4">
                     <button
+                      disabled={calling}
                       onClick={() => handleCall(contact.sipId)}
                       className="p-2 rounded-full bg-white text-gray-600"
                     >

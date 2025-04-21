@@ -10,12 +10,10 @@ import { FaHeadphonesAlt } from "react-icons/fa";
 import { LuLogOut } from "react-icons/lu";
 import ModalApprove from "./modal-approval";
 import { useSearchParams } from "next/navigation";
-import Cookies from "universal-cookie";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 const Sidebar = () => {
-  const cookies = new Cookies();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
