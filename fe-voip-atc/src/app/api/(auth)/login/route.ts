@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { signJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
+import type { UserRow } from "@/types/db";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const [rows]: any = await db.execute(
+    const [rows] = await db.execute<UserRow[]>(
       "SELECT * FROM users WHERE username = ?",
       [username]
     );
@@ -59,10 +60,18 @@ export async function POST(req: Request) {
       },
       sipConfig,
     });
-  } catch (error: any) {
-    console.error("Login error:", error);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Login error:", error);
+      return NextResponse.json(
+        { message: "Error during login", error: error.message },
+        { status: 500 }
+      );
+    }
+
+    // fallback jika error bukan instance dari Error
     return NextResponse.json(
-      { message: "Error during login", error: error.message },
+      { message: "Unknown error during login" },
       { status: 500 }
     );
   }

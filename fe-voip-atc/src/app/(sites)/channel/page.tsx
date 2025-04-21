@@ -2,10 +2,7 @@
 import { useState } from "react";
 import Button from "@/components/button";
 import TextField from "@/components/textfield";
-import ModalAdd from "@/components/modal-add";
-import { MdEdit } from "react-icons/md";
 import { FaTrash } from "react-icons/fa";
-import { IoLogIn } from "react-icons/io5";
 
 export default function ChannelPage() {
   const [channels, setChannels] = useState([
@@ -17,11 +14,6 @@ export default function ChannelPage() {
   ]);
 
   const [search, setSearch] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    members: 0,
-  });
 
   return (
     <div>
@@ -41,7 +33,6 @@ export default function ChannelPage() {
         <Button
           text="Tambah Channel"
           width={170}
-          onClick={() => setShowAddModal(true)}
           color="black"
           type={undefined}
         />

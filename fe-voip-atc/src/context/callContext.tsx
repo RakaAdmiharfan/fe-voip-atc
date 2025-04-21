@@ -7,7 +7,16 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import { Inviter, Invitation, SessionState } from "sip.js";
+import {
+  Inviter,
+  Invitation,
+  SessionState,
+  SessionDescriptionHandler,
+} from "sip.js";
+
+interface ExtendedSDH extends SessionDescriptionHandler {
+  peerConnection: RTCPeerConnection;
+}
 
 interface Participant {
   id: string;
@@ -49,11 +58,39 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const audio = document.createElement("audio");
     audio.srcObject = stream;
     audio.autoplay = true;
-    (audio as any).playsInline = true;
+    audio.setAttribute("playsinline", "true");
     audio.volume = 1;
     audio.style.display = "none";
     document.body.appendChild(audio);
   };
+
+  const endCall = useCallback(() => {
+    if (!currentSession) {
+      setCallState("idle");
+      return;
+    }
+
+    const handleTermination = () => {
+      console.log("[📴 Call Terminated]");
+      setCurrentSession(null);
+      setIncomingSession(null);
+      setCallState("idle");
+      setParticipants([]);
+    };
+
+    try {
+      if (currentSession instanceof Inviter) {
+        currentSession.cancel();
+      } else if (currentSession instanceof Invitation) {
+        currentSession.bye();
+      } else {
+        handleTermination();
+      }
+    } catch (error) {
+      console.error("Error during call termination:", error);
+      handleTermination();
+    }
+  }, [currentSession]);
 
   const startCall = useCallback((username: string) => {
     const self: Participant = {
@@ -99,7 +136,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to accept call:", error);
       endCall();
     }
-  }, [incomingSession]);
+  }, [incomingSession, endCall]);
 
   const declineCall = useCallback(() => {
     if (!incomingSession) return;
@@ -113,49 +150,21 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setParticipants([]);
   }, [incomingSession]);
 
-  const endCall = useCallback(() => {
-    if (!currentSession) {
-      setCallState("idle");
-      return;
-    }
-
-    const handleTermination = () => {
-      console.log("[📴 Call Terminated]");
-      setCurrentSession(null);
-      setIncomingSession(null);
-      setCallState("idle");
-      setParticipants([]);
-    };
-
-    try {
-      currentSession.stateChange.addListener((newState) => {
-        if (newState === SessionState.Terminated) handleTermination();
-      });
-
-      if (currentSession instanceof Inviter) {
-        currentSession.cancel();
-      } else if (currentSession instanceof Invitation) {
-        currentSession.bye();
-      } else {
-        handleTermination();
-      }
-    } catch (error) {
-      console.error("Error during call termination:", error);
-      handleTermination();
-    }
-  }, [currentSession]);
-
   // 🔊 Attach remote stream to <audio>
   useEffect(() => {
     if (!currentSession) return;
 
-    const sessionDescriptionHandler: any =
-      currentSession.sessionDescriptionHandler;
+    const sessionDescriptionHandler = currentSession.sessionDescriptionHandler;
+    if (!sessionDescriptionHandler) return;
 
     const handleRemoteStream = () => {
-      const pc: RTCPeerConnection = sessionDescriptionHandler?.peerConnection;
+      const pc = (sessionDescriptionHandler as ExtendedSDH).peerConnection;
       if (!pc) return;
 
+      pc.oniceconnectionstatechange = () => {
+        console.log("[ICE STATE]", pc.iceConnectionState);
+      };
+      
       const remoteStream = new MediaStream();
       pc.getReceivers().forEach((receiver) => {
         if (receiver.track?.kind === "audio") {
@@ -188,6 +197,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [callState, declineCall]);
 
+  useEffect(() => {
+    if (callState === "calling") {
+      const timeout = setTimeout(() => {
+        console.log("⏱️ Auto-ending unanswered outgoing call");
+        endCall(); // timeout untuk caller
+      }, 30_000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [callState, endCall]);
+
   // 📞 Debugging
   useEffect(() => {
     console.log("[📞 Call State]", callState);
@@ -203,19 +223,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [incomingSession]);
 
   useEffect(() => {
-    if (currentSession) {
-      const onStateChange = () => {
-        if (currentSession.state === SessionState.Terminated) {
-          console.log("[📴 Call Terminated Automatically]");
-          setCallState("idle");
-          setCurrentSession(null);
-          setParticipants([]);
-        }
-      };
-      currentSession.stateChange.addListener(onStateChange);
-      return () => currentSession.stateChange.removeListener(onStateChange);
-    }
-  }, [currentSession]);
+    if (!currentSession) return;
+
+    const onStateChange = (newState: SessionState) => {
+      if (newState === SessionState.Terminated) {
+        console.log("[📴 Session terminated detected]");
+        endCall(); // sinkronisasi end call
+      }
+    };
+
+    currentSession.stateChange.addListener(onStateChange);
+    return () => currentSession.stateChange.removeListener(onStateChange);
+  }, [currentSession, endCall]);
 
   return (
     <CallContext.Provider

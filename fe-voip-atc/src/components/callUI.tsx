@@ -58,7 +58,11 @@ export default function CallUI() {
               className="flex flex-col items-center p-6 rounded-xl bg-[#292b2f] hover:bg-[#40444b] transition min-h-[200px]"
             >
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#202225] bg-[#202225] flex items-center justify-center shadow-md">
-                <img src={user.avatar} className="w-full h-full object-cover" />
+                <img
+                  src={user.avatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <span className="mt-5 text-base justify-center items-center font-medium text-gray-200">
                 {user.username}

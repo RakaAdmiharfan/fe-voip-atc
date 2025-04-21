@@ -32,9 +32,14 @@ export default function LoginPage() {
 
       // ✅ Arahkan user ke halaman dashboard (yang di dalam VoIPProvider)
       router.push("/contact");
-    } catch (error: any) {
-      console.error("Login Error:", error);
-      setErrorMessage(error.message || "Login failed");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(error.response?.data?.message || "Login failed");
+      } else if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Login failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +88,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-sm text-center text-gray-600 mt-4">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/register" className="text-blue-600 hover:underline">
             Register here
           </Link>

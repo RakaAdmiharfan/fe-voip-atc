@@ -39,11 +39,15 @@ export default function Register() {
       } else {
         setErrorMessage(response.data.message || "Registrasi gagal.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Register Error:", err);
-      setErrorMessage(
-        err.response?.data?.message || "Terjadi kesalahan saat register."
-      );
+      if (axios.isAxiosError(err)) {
+        setErrorMessage(
+          err.response?.data?.message || "Terjadi kesalahan saat register."
+        );
+      } else {
+        setErrorMessage("Terjadi kesalahan yang tidak diketahui.");
+      }
     } finally {
       setIsLoading(false);
     }

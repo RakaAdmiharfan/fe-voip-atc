@@ -20,7 +20,6 @@ interface ModalAddProps {
   button2Color?: string;
   button1TextColor?: string;
   button2TextColor?: string;
-  isEdit?: boolean;
 }
 
 export default function ModalAdd({
@@ -35,7 +34,6 @@ export default function ModalAdd({
   button2Color,
   button1TextColor,
   button2TextColor,
-  isEdit = false,
 }: ModalAddProps) {
   const [usernameError, setUsernameError] = useState<string | null>(null);
 

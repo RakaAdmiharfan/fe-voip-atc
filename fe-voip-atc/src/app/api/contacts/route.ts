@@ -1,34 +1,43 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import type { UserRow, ContactRow } from "@/types/db";
 
 export async function GET() {
   const session = await getSessionUser();
-  console.log("🧠 Current session:", session); // <--- tambahkan ini
+  console.log("🧠 Current session:", session);
 
   if (!session) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const [rows]: any = await db.execute(
+    const [contacts] = await db.execute<ContactRow[]>(
       `SELECT 
-        c.contact_id AS id,
+        c.contact_id AS contact_id,
         u.username AS username,
-        CAST(c.username AS CHAR) AS sipId,
-        c.name AS name
+        CAST(c.username AS CHAR) AS username,
+        c.name AS name,
+        c.user_id AS user_id,
+        c.created_at AS created_at
       FROM contacts c
       JOIN users u ON u.id = c.username
       WHERE c.user_id = ?`,
       [session.id]
     );
 
-    console.log("📦 Contacts fetched:", rows); // <--- tambahkan ini juga
-    return NextResponse.json(rows);
-  } catch (err: any) {
-    console.error("Error fetching contacts:", err);
+    console.log("📦 Contacts fetched:", contacts);
+    return NextResponse.json(contacts);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error("Fetch contact error:", err);
+      return NextResponse.json(
+        { message: "Failed to fetch contact", error: err.message },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
-      { message: "Failed to fetch contacts", error: err.message },
+      { message: "Unknown error occurred during fetching contact." },
       { status: 500 }
     );
   }
@@ -51,8 +60,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Cari user berdasarkan username (string login)
-    const [userRows]: any = await db.execute(
+    const [userRows] = await db.execute<UserRow[]>(
       "SELECT id, username FROM users WHERE username = ?",
       [username]
     );
@@ -64,9 +72,8 @@ export async function POST(req: Request) {
     const sipId = userRows[0].id.toString();
     const displayName = name || userRows[0].username;
 
-    // Cek apakah kontak sudah pernah ditambahkan
-    const [existing]: any = await db.execute(
-      "SELECT 1 FROM contacts WHERE user_id = ? AND username = ?",
+    const [existing] = await db.execute<ContactRow[]>(
+      "SELECT * FROM contacts WHERE user_id = ? AND username = ?",
       [session.id, sipId]
     );
 
@@ -77,17 +84,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Simpan ke dalam contacts (username = SIP ID)
     await db.execute(
       "INSERT INTO contacts (user_id, username, name) VALUES (?, ?, ?)",
       [session.id, sipId, displayName]
     );
 
     return NextResponse.json({ message: "Contact added successfully" });
-  } catch (err: any) {
-    console.error("Add contact error:", err);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error("Add contact error:", err);
+      return NextResponse.json(
+        { message: "Failed to add contact", error: err.message },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
-      { message: "Failed to add contact", error: err.message },
+      { message: "Unknown error occurred during adding contact." },
       { status: 500 }
     );
   }
@@ -116,10 +128,16 @@ export async function DELETE(req: Request) {
     );
 
     return NextResponse.json({ message: "Contact deleted successfully" });
-  } catch (err: any) {
-    console.error("Delete contact error:", err);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error("Delete contact error:", err);
+      return NextResponse.json(
+        { message: "Failed to delete contact", error: err.message },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
-      { message: "Failed to delete contact", error: err.message },
+      { message: "Unknown error occurred during deleting contact." },
       { status: 500 }
     );
   }

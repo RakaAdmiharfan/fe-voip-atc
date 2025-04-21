@@ -11,6 +11,7 @@ export function verifyJwt(token: string) {
   try {
     return jwt.verify(token, SECRET);
   } catch (e) {
+    console.error("JWT verification failed:", e);
     return null;
   }
 }

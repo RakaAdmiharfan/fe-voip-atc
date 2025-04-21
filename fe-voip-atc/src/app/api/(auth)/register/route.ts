@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import type { ResultSetHeader } from "mysql2/promise";
+import type { UserRow } from "@/types/db";
 
 // POST /api/register
 export async function POST(req: Request) {
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
 
   try {
     // Cek apakah username sudah dipakai
-    const [existing]: any = await db.execute(
+    const [existing] = await db.execute<UserRow[]>(
       `SELECT 1 FROM users WHERE username = ?`,
       [username]
     );
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
     const sip_password = crypto.randomBytes(6).toString("hex");
 
     // Simpan ke tabel users
-    const [result]: any = await db.execute(
+    const [result] = await db.execute<ResultSetHeader>(
       `INSERT INTO users (username, email, password_hash, sip_password) VALUES (?, ?, ?, ?)`,
       [username, email || null, password_hash, sip_password]
     );
@@ -96,10 +98,17 @@ export async function POST(req: Request) {
       message: "User registered successfully",
       sipId, // bisa digunakan di frontend untuk call
     });
-  } catch (error: any) {
-    console.error("Register error:", error);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Register error:", error);
+      return NextResponse.json(
+        { message: "Error during registration", error: error.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      { message: "Error during registration", error: error.message },
+      { message: "Unknown error during registration" },
       { status: 500 }
     );
   }
