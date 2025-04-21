@@ -32,9 +32,7 @@ export default function ContactPage() {
 
   const fetchContacts = async () => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/contacts`
-      );
+      const res = await fetch(`/api/contacts`);
       const data = await res.json();
       console.log("Fetched contacts:", data);
       setContacts(Array.isArray(data) ? data : []);
@@ -68,12 +66,9 @@ export default function ContactPage() {
   };
 
   const handleDelete = async (contactId: string) => {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/contacts?id=${contactId}`,
-      {
-        method: "DELETE",
-      }
-    );
+    const res = await fetch(`/api/contacts?id=${contactId}`, {
+      method: "DELETE",
+    });
     if (res.ok) {
       setContacts((prev) => prev.filter((c) => c.id !== contactId));
     }
@@ -82,14 +77,11 @@ export default function ContactPage() {
   const handleAddContact = async () => {
     if (!form.username.trim()) return;
     try {
-      const res = await fetch(
-        "${process.env.NEXT_PUBLIC_API_BASE_URL}/contacts",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        }
-      );
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
       if (res.ok) {
         fetchContacts();
         setForm({ username: "", name: "" });
