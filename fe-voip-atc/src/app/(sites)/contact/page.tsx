@@ -46,7 +46,7 @@ export default function ContactPage() {
   }, []);
 
   const handleCall = async (sipId: string) => {
-    if (!userAgent || calling || !sipId) {
+    if (!userAgent || !sipId) {
       console.warn("SIP call blocked: userAgent or sipId invalid.");
       return;
     }
