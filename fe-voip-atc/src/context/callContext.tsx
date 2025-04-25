@@ -31,11 +31,14 @@ interface CallContextType {
   setCallState: (state: CallContextType["callState"]) => void;
   participants: Participant[];
   setParticipants: (participants: Participant[]) => void;
-  startCall: (username: string) => void;
+  startCall: (targetId: string, isChannel?: boolean, session?: Inviter) => void;
   receiveCall: (invitation: Invitation) => void;
   acceptCall: () => void;
   declineCall: () => void;
   endCall: () => void;
+  leaveChannel: () => void;
+  isChannel: boolean;
+  setIsChannel: (flag: boolean) => void;
   incomingSession: Invitation | null;
   setIncomingSession: (session: Invitation | null) => void;
 }
@@ -53,6 +56,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     "idle" | "calling" | "ringing" | "in-call"
   >("idle");
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [isChannel, setIsChannel] = useState(false);
 
   const setupAudioElement = (stream: MediaStream) => {
     const audio = document.createElement("audio");
@@ -76,6 +80,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setIncomingSession(null);
       setCallState("idle");
       setParticipants([]);
+      setIsChannel(false);
     };
 
     try {
@@ -92,20 +97,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentSession]);
 
-  const startCall = useCallback((username: string) => {
-    const self: Participant = {
-      id: "self",
-      username: "You",
-      avatar: "/avatar/self.png",
-    };
-    const target: Participant = {
-      id: username,
-      username,
-      avatar: "/avatar/user.png",
-    };
-    setParticipants([self, target]);
-    setCallState("calling");
-  }, []);
+  const leaveChannel = useCallback(() => {
+    console.log("🚪 Leaving conference channel...");
+    endCall();
+  }, [endCall]);
+
+  const startCall = useCallback(
+    (targetId: string, isChannelFlag = false, session?: Inviter) => {
+      const self: Participant = {
+        id: "self",
+        username: "You",
+        avatar: "/avatar/self.png",
+      };
+
+      setIsChannel(isChannelFlag);
+      setParticipants([self]);
+      setCallState(isChannelFlag ? "in-call" : "calling");
+      if (session) setCurrentSession(session);
+    },
+    []
+  );
 
   const receiveCall = useCallback((invitation: Invitation) => {
     setIncomingSession(invitation);
@@ -132,6 +143,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setCurrentSession(incomingSession);
       setIncomingSession(null);
       setCallState("in-call");
+
+      const self: Participant = {
+        id: "self",
+        username: "You",
+        avatar: "/avatar/self.png",
+      };
+      const caller = incomingSession.remoteIdentity.uri.user || "unknown";
+      const from: Participant = {
+        id: caller,
+        username: caller,
+        avatar: "/avatar/user.png",
+      };
+      setParticipants([from, self]);
     } catch (error) {
       console.error("Failed to accept call:", error);
       endCall();
@@ -150,7 +174,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setParticipants([]);
   }, [incomingSession]);
 
-  // 🔊 Attach remote stream to <audio>
   useEffect(() => {
     if (!currentSession) return;
 
@@ -164,7 +187,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       pc.oniceconnectionstatechange = () => {
         console.log("[ICE STATE]", pc.iceConnectionState);
       };
-      
+
       const remoteStream = new MediaStream();
       pc.getReceivers().forEach((receiver) => {
         if (receiver.track?.kind === "audio") {
@@ -186,29 +209,35 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [currentSession]);
 
-  // 📲 Auto decline after timeout
+  useEffect(() => {
+    if (callState === "idle") {
+      document.querySelectorAll("audio").forEach((audio) => {
+        audio.remove();
+      });
+    }
+  }, [callState]);
+
   useEffect(() => {
     if (callState === "ringing") {
       const timeout = setTimeout(() => {
         console.log("⏱️ Auto-declining incoming call");
         declineCall();
-      }, 30_000);
+      }, 30000);
       return () => clearTimeout(timeout);
     }
   }, [callState, declineCall]);
 
   useEffect(() => {
-    if (callState === "calling") {
-      const timeout = setTimeout(() => {
-        console.log("⏱️ Auto-ending unanswered outgoing call");
-        endCall(); // timeout untuk caller
-      }, 30_000);
+    if (callState !== "calling") return;
 
-      return () => clearTimeout(timeout);
-    }
+    const timeout = setTimeout(() => {
+      console.log("⏱️ Auto-ending unanswered outgoing call");
+      endCall();
+    }, 30000);
+
+    return () => clearTimeout(timeout);
   }, [callState, endCall]);
 
-  // 📞 Debugging
   useEffect(() => {
     console.log("[📞 Call State]", callState);
   }, [callState]);
@@ -228,7 +257,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const onStateChange = (newState: SessionState) => {
       if (newState === SessionState.Terminated) {
         console.log("[📴 Session terminated detected]");
-        endCall(); // sinkronisasi end call
+        endCall();
       }
     };
 
@@ -252,6 +281,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         acceptCall,
         declineCall,
         endCall,
+        leaveChannel,
+        isChannel,
+        setIsChannel,
       }}
     >
       {children}

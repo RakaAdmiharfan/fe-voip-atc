@@ -27,7 +27,7 @@ export default function ContactPage() {
   });
   const [modalOpen, setModalOpen] = useState(false);
   const { userAgent } = useVoIP();
-  const { startCall } = useCall();
+  const { startCall, setCurrentSession } = useCall();
   const [calling, setCalling] = useState(false);
 
   const fetchContacts = async () => {
@@ -54,10 +54,18 @@ export default function ContactPage() {
     setCalling(true);
     try {
       const targetURI = `sip:${sipId}@sip.pttalk.id`;
-      console.log("📞 Calling URI:", targetURI);
-      const inviter = new Inviter(userAgent, UserAgent.makeURI(targetURI)!);
-      startCall(sipId);
-      await inviter.invite();
+      const uri = UserAgent.makeURI(targetURI);
+      if (!uri) {
+        console.error("Invalid SIP URI");
+        return;
+      }
+
+      console.log("📞 Calling URI:", uri.toString());
+
+      const inviter = new Inviter(userAgent, uri);
+      startCall(sipId, false, inviter); // pass inviter!
+      await inviter.invite(); // Kirim SIP INVITE (signaling)
+      setCurrentSession(inviter); // ✅ Simpan sesi untuk kontrol call
     } catch (err) {
       console.error("Call failed", err);
     } finally {

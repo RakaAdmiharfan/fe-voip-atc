@@ -6,15 +6,41 @@ import { useState, useEffect } from "react";
 import { SessionState } from "sip.js";
 
 export default function CallUI() {
-  const { currentSession, callState, participants, endCall, acceptCall } =
-    useCall();
+  const {
+    currentSession,
+    callState,
+    participants,
+    isChannel,
+    endCall,
+    acceptCall,
+    leaveChannel,
+  } = useCall();
+
   const [muted, setMuted] = useState(false);
   const [callStatus, setCallStatus] = useState("Ringing");
+
+  const handleEnd = isChannel ? leaveChannel : endCall;
+
+  const toggleMute = () => {
+    setMuted((prev) => {
+      const newMuted = !prev;
+      const pc = (currentSession?.sessionDescriptionHandler as any)
+        ?.peerConnection as RTCPeerConnection;
+      if (pc) {
+        pc.getSenders().forEach((sender) => {
+          if (sender.track?.kind === "audio") {
+            sender.track.enabled = !newMuted;
+          }
+        });
+      }
+      return newMuted;
+    });
+  };
 
   useEffect(() => {
     if (!currentSession) return;
 
-    const handleStateChange = (state: SessionState) => {
+    const handler = (state: SessionState) => {
       console.log("Call state changed:", state);
       if (state === SessionState.Established) {
         setCallStatus("Connected");
@@ -23,10 +49,14 @@ export default function CallUI() {
       }
     };
 
-    currentSession.stateChange.addListener(handleStateChange);
+    // ⬇️ Pasang listener
+    currentSession.stateChange.addListener(handler);
+
+    // ⬇️ Tambahkan ini untuk deteksi state awal
+    handler(currentSession.state);
 
     return () => {
-      currentSession.stateChange.removeListener(handleStateChange);
+      currentSession.stateChange.removeListener(handler);
     };
   }, [currentSession]);
 
@@ -36,7 +66,12 @@ export default function CallUI() {
     <div className="absolute inset-0 z-50 bg-[#2f3136] text-white flex flex-col px-8 py-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between border-b border-[#40444b] pb-4">
-        <h2 className="text-lg font-semibold text-white">{callStatus}</h2>
+        <div>
+          <h2 className="text-lg font-semibold">{callStatus}</h2>
+          {isChannel && (
+            <p className="text-sm text-gray-400 mt-1">Channel Mode</p>
+          )}
+        </div>
       </div>
 
       {/* Participants */}
@@ -64,13 +99,20 @@ export default function CallUI() {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="mt-5 text-base justify-center items-center font-medium text-gray-200">
+              <span className="mt-5 text-base font-medium text-gray-200">
                 {user.username}
               </span>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Waiting note */}
+      {isChannel && participants.length === 1 && (
+        <div className="text-center mb-4 text-gray-400 text-sm">
+          Waiting for others to join the channel...
+        </div>
+      )}
 
       {/* Controls */}
       <div className="mt-auto flex justify-center gap-6 border-t border-[#40444b] pt-6">
@@ -79,12 +121,14 @@ export default function CallUI() {
             <button
               onClick={acceptCall}
               className="p-4 rounded-full bg-green-600 hover:bg-green-700 text-white"
+              title="Accept Call"
             >
               <IoCall size={28} />
             </button>
             <button
-              onClick={endCall}
+              onClick={handleEnd}
               className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white"
+              title="Decline"
             >
               <IoClose size={28} />
             </button>
@@ -92,20 +136,22 @@ export default function CallUI() {
         ) : (
           <>
             <button
-              onClick={() => setMuted(!muted)}
+              onClick={toggleMute}
               className={`p-4 rounded-full text-white transition ${
                 muted
                   ? "bg-red-600 hover:bg-red-700"
                   : "bg-[#40444b] hover:bg-[#525760]"
               }`}
+              title={muted ? "Unmute" : "Mute"}
             >
               {muted ? <IoMicOff size={28} /> : <IoMic size={28} />}
             </button>
             <button
-              onClick={endCall}
+              onClick={handleEnd}
               className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white"
+              title={isChannel ? "Leave Channel" : "End Call"}
             >
-              <IoCall size={28} />
+              <IoClose size={28} />
             </button>
           </>
         )}
