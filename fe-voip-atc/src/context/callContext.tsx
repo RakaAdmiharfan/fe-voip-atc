@@ -4,8 +4,9 @@ import {
   createContext,
   useContext,
   useState,
-  useCallback,
   useEffect,
+  useCallback,
+  useRef,
 } from "react";
 import {
   Inviter,
@@ -27,7 +28,7 @@ interface Participant {
 interface CallContextType {
   currentSession: Inviter | Invitation | null;
   setCurrentSession: (session: Inviter | Invitation | null) => void;
-  callState: "idle" | "calling" | "ringing" | "in-call";
+  callState: "idle" | "calling" | "ringing" | "in-call" | "ended";
   setCallState: (state: CallContextType["callState"]) => void;
   participants: Participant[];
   setParticipants: (participants: Participant[]) => void;
@@ -35,6 +36,7 @@ interface CallContextType {
   receiveCall: (invitation: Invitation) => void;
   acceptCall: () => void;
   declineCall: () => void;
+  rejectCall: () => void;
   endCall: () => void;
   leaveChannel: () => void;
   isChannel: boolean;
@@ -53,67 +55,102 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     null
   );
   const [callState, setCallState] = useState<
-    "idle" | "calling" | "ringing" | "in-call"
+    "idle" | "calling" | "ringing" | "in-call" | "ended"
   >("idle");
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isChannel, setIsChannel] = useState(false);
+  const outgoingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const setupAudioElement = (stream: MediaStream) => {
-    const audio = document.createElement("audio");
-    audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.setAttribute("playsinline", "true");
-    audio.volume = 1;
-    audio.style.display = "none";
-    document.body.appendChild(audio);
+  const cleanupAudioElements = () => {
+    document.querySelectorAll("audio").forEach((audio) => audio.remove());
   };
+
+  const hardResetCallState = useCallback(() => {
+    if (outgoingTimeoutRef.current) clearTimeout(outgoingTimeoutRef.current);
+    outgoingTimeoutRef.current = null;
+    setCurrentSession(null);
+    setIncomingSession(null);
+    setParticipants([]);
+    setIsChannel(false);
+    setCallState("idle");
+    cleanupAudioElements();
+  }, []);
 
   const endCall = useCallback(() => {
     if (!currentSession) {
-      setCallState("idle");
+      setCallState("ended");
+      setTimeout(hardResetCallState, 1000);
       return;
     }
-
-    const handleTermination = () => {
-      console.log("[📴 Call Terminated]");
-      setCurrentSession(null);
-      setIncomingSession(null);
-      setCallState("idle");
-      setParticipants([]);
-      setIsChannel(false);
-    };
-
     try {
-      if (currentSession instanceof Inviter) {
-        currentSession.cancel();
-      } else if (currentSession instanceof Invitation) {
+      if (
+        currentSession.state === SessionState.Initial ||
+        currentSession.state === SessionState.Establishing
+      ) {
+        if (currentSession instanceof Inviter) {
+          currentSession.cancel();
+        }
+      } else if (currentSession.state === SessionState.Established) {
         currentSession.bye();
-      } else {
-        handleTermination();
       }
-    } catch (error) {
-      console.error("Error during call termination:", error);
-      handleTermination();
+    } catch (err) {
+      console.error("Error ending call:", err);
+    } finally {
+      setCallState("ended");
+      setTimeout(hardResetCallState, 1000);
     }
-  }, [currentSession]);
+  }, [currentSession, hardResetCallState]);
+
+  const rejectCall = useCallback(() => {
+    if (!incomingSession) return;
+    try {
+      incomingSession.reject();
+    } catch (error) {
+      console.error("Failed to reject incoming call:", error);
+    }
+    setCallState("ended");
+    setTimeout(hardResetCallState, 1000);
+  }, [incomingSession, hardResetCallState]);
 
   const leaveChannel = useCallback(() => {
-    console.log("🚪 Leaving conference channel...");
     endCall();
   }, [endCall]);
 
   const startCall = useCallback(
     (targetId: string, isChannelFlag = false, session?: Inviter) => {
+      // 🛡️ Clean dulu semua sebelum mulai call baru
+      if (outgoingTimeoutRef.current) clearTimeout(outgoingTimeoutRef.current);
+      outgoingTimeoutRef.current = null;
+      setCurrentSession(null);
+      setIncomingSession(null);
+      setParticipants([]);
+      setIsChannel(false);
+      cleanupAudioElements();
+      setCallState("idle"); // HANYA reset ke idle
+      // ⚡ lalu lanjut call baru
+
       const self: Participant = {
         id: "self",
         username: "You",
-        avatar: "/avatar/self.png",
+        avatar: "user.png",
       };
-
       setIsChannel(isChannelFlag);
-      setParticipants([self]);
-      setCallState(isChannelFlag ? "in-call" : "calling");
-      if (session) setCurrentSession(session);
+
+      if (isChannelFlag) {
+        setParticipants([self]);
+      } else {
+        const target: Participant = {
+          id: targetId,
+          username: targetId,
+          avatar: "user.png",
+        };
+        setParticipants([self, target]);
+      }
+
+      setTimeout(() => {
+        setCallState(isChannelFlag ? "in-call" : "calling");
+        if (session) setCurrentSession(session);
+      }, 50);
     },
     []
   );
@@ -125,13 +162,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const self: Participant = {
       id: "self",
       username: "You",
-      avatar: "/avatar/self.png",
+      avatar: "user.png",
     };
     const caller = invitation.remoteIdentity.uri.user || "unknown";
     const from: Participant = {
       id: caller,
       username: caller,
-      avatar: "/avatar/user.png",
+      avatar: "user.png",
     };
     setParticipants([from, self]);
   }, []);
@@ -147,20 +184,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const self: Participant = {
         id: "self",
         username: "You",
-        avatar: "/avatar/self.png",
+        avatar: "user.png",
       };
       const caller = incomingSession.remoteIdentity.uri.user || "unknown";
       const from: Participant = {
         id: caller,
         username: caller,
-        avatar: "/avatar/user.png",
+        avatar: "user.png",
       };
       setParticipants([from, self]);
     } catch (error) {
       console.error("Failed to accept call:", error);
-      endCall();
+      hardResetCallState();
     }
-  }, [incomingSession, endCall]);
+  }, [incomingSession, hardResetCallState]);
 
   const declineCall = useCallback(() => {
     if (!incomingSession) return;
@@ -169,101 +206,67 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Failed to decline call:", error);
     }
-    setIncomingSession(null);
-    setCallState("idle");
-    setParticipants([]);
-  }, [incomingSession]);
+    setCallState("ended");
+    setTimeout(hardResetCallState, 1000);
+  }, [incomingSession, hardResetCallState]);
 
   useEffect(() => {
     if (!currentSession) return;
 
-    const sessionDescriptionHandler = currentSession.sessionDescriptionHandler;
-    if (!sessionDescriptionHandler) return;
+    const sessionDescriptionHandler =
+      currentSession.sessionDescriptionHandler as ExtendedSDH;
+    if (!sessionDescriptionHandler?.peerConnection) return;
 
-    const handleRemoteStream = () => {
-      const pc = (sessionDescriptionHandler as ExtendedSDH).peerConnection;
-      if (!pc) return;
-
-      pc.oniceconnectionstatechange = () => {
-        console.log("[ICE STATE]", pc.iceConnectionState);
-      };
-
-      const remoteStream = new MediaStream();
-      pc.getReceivers().forEach((receiver) => {
+    const remoteStream = new MediaStream();
+    sessionDescriptionHandler.peerConnection
+      .getReceivers()
+      .forEach((receiver) => {
         if (receiver.track?.kind === "audio") {
           remoteStream.addTrack(receiver.track);
         }
       });
 
-      setupAudioElement(remoteStream);
-    };
-
-    const timer = setTimeout(() => {
-      try {
-        handleRemoteStream();
-      } catch (e) {
-        console.error("⚠️ Failed to handle remote audio stream:", e);
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    const audio = document.createElement("audio");
+    audio.srcObject = remoteStream;
+    audio.autoplay = true;
+    audio.setAttribute("playsinline", "true");
+    audio.style.display = "none";
+    audio.volume = 1;
+    document.body.appendChild(audio);
   }, [currentSession]);
 
   useEffect(() => {
-    if (callState === "idle") {
-      document.querySelectorAll("audio").forEach((audio) => {
-        audio.remove();
-      });
-    }
-  }, [callState]);
-
-  useEffect(() => {
-    if (callState === "ringing") {
+    if (callState === "calling") {
       const timeout = setTimeout(() => {
-        console.log("⏱️ Auto-declining incoming call");
-        declineCall();
-      }, 30000);
+        console.log("⏱️ Auto-ending unanswered outgoing call");
+        endCall();
+      }, 60000);
+      outgoingTimeoutRef.current = timeout;
       return () => clearTimeout(timeout);
     }
-  }, [callState, declineCall]);
-
-  useEffect(() => {
-    if (callState !== "calling") return;
-
-    const timeout = setTimeout(() => {
-      console.log("⏱️ Auto-ending unanswered outgoing call");
-      endCall();
-    }, 30000);
-
-    return () => clearTimeout(timeout);
   }, [callState, endCall]);
-
-  useEffect(() => {
-    console.log("[📞 Call State]", callState);
-  }, [callState]);
-
-  useEffect(() => {
-    if (incomingSession) {
-      console.log(
-        "[📲 Incoming Call from]",
-        incomingSession.remoteIdentity.uri.toString()
-      );
-    }
-  }, [incomingSession]);
 
   useEffect(() => {
     if (!currentSession) return;
 
     const onStateChange = (newState: SessionState) => {
-      if (newState === SessionState.Terminated) {
-        console.log("[📴 Session terminated detected]");
-        endCall();
+      console.log("[📞 Session State]", newState);
+
+      if (newState === SessionState.Established) {
+        if (outgoingTimeoutRef.current) {
+          clearTimeout(outgoingTimeoutRef.current);
+          outgoingTimeoutRef.current = null;
+        }
+      } else if (newState === SessionState.Terminated) {
+        console.log("[📴 Session Terminated]");
+        setCallState("ended");
+        setTimeout(hardResetCallState, 1000);
       }
     };
 
     currentSession.stateChange.addListener(onStateChange);
     return () => currentSession.stateChange.removeListener(onStateChange);
-  }, [currentSession, endCall]);
+  }, [currentSession, hardResetCallState]);
 
   return (
     <CallContext.Provider
@@ -280,6 +283,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         receiveCall,
         acceptCall,
         declineCall,
+        rejectCall,
         endCall,
         leaveChannel,
         isChannel,

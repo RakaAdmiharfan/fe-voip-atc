@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { IoPersonCircleSharp } from "react-icons/io5";
 import { FaSquarePhone } from "react-icons/fa6";
 import { FaHeadphonesAlt } from "react-icons/fa";
+import { IoIosSettings } from "react-icons/io";
 import { LuLogOut } from "react-icons/lu";
 import ModalApprove from "./modal-approval";
 import { useSearchParams } from "next/navigation";
@@ -31,6 +32,8 @@ const Sidebar = () => {
       setActive(2);
     } else if (pathname === "/channel") {
       setActive(3);
+    } else if (pathname === "/settings") {
+      setActive(4);
     } else {
       setActive(-1);
     }
@@ -147,7 +150,7 @@ const Sidebar = () => {
 
             <li className="mt-4">
               <Link
-                href="/call-list"
+                href="/recordings"
                 className={`flex items-center lg:p-2 rounded-lg ${
                   active === 2
                     ? "text-white font-semibold lg:bg-[#40444b]"
@@ -160,7 +163,27 @@ const Sidebar = () => {
                     navOpen || isMobileOpen ? "block" : "hidden"
                   } lg:block ml-3`}
                 >
-                  Call List
+                  Recordings
+                </span>
+              </Link>
+            </li>
+
+            <li className="mt-4">
+              <Link
+                href="/settings"
+                className={`flex items-center lg:p-2 rounded-lg ${
+                  active === 4
+                    ? "text-white font-semibold lg:bg-[#40444b]"
+                    : "text-white hover:bg-[#2f3136]"
+                }`}
+              >
+                <IoIosSettings className="w-6 h-6 rounded-full" />
+                <span
+                  className={`${
+                    navOpen || isMobileOpen ? "block" : "hidden"
+                  } lg:block ml-3`}
+                >
+                  Settings
                 </span>
               </Link>
             </li>

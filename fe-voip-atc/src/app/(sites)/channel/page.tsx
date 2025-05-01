@@ -27,10 +27,10 @@ export default function ChannelPage() {
 
     setJoining(true);
     try {
-      const targetURI = `sip:${channelNumber}@sip.pttalk.id`;
-      console.log("📞 Joining Channel:", targetURI);
-      const inviter = new Inviter(userAgent, UserAgent.makeURI(targetURI)!);
-      startCall(channelNumber, true);
+      const uri = UserAgent.makeURI(`sip:${channelNumber}@sip.pttalk.id`);
+      if (!uri) return;
+      const inviter = new Inviter(userAgent, uri);
+      startCall(channelNumber, true, inviter);
       await inviter.invite();
     } catch (err) {
       console.error("Failed to join channel", err);
@@ -43,70 +43,67 @@ export default function ChannelPage() {
     setChannels(channels.filter((c) => c.id !== id));
   };
 
+  const filtered = channels.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="p-6 text-white">
-      <h1 className="text-3xl font-bold mb-6">Channels</h1>
+    <section className="flex flex-col gap-6 text-white">
+      <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-30">
+        Channel
+      </h1>
 
-      {/* Search & Add */}
-      <div className="flex flex-col md:flex-row md:justify-between items-center mb-6 gap-4">
-        <TextField
-          name="search"
-          type="search"
-          placeholder="Search channel..."
-          label=""
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
+        <div className="w-52 md:w-80">
+          <TextField
+            name="search"
+            type="search"
+            placeholder="Search by username"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            label=""
+          />
+        </div>
+
         <Button
-          text="Tambah Channel"
-          width={170}
+          text="Add Channel"
+          type="button"
+          // onClick={() => setModalOpen(true)}
           color="black"
-          type={undefined}
+          width={170}
         />
       </div>
 
-      {/* Channel List */}
-      <div className="bg-[#2f3136] rounded-xl shadow-md overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-[#292b2f] text-left text-gray-400 uppercase text-sm">
-            <tr>
-              <th className="p-4">Channel</th>
-              <th className="p-4">Members</th>
-              <th className="p-4 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {channels
-              .filter((channel) =>
-                channel.name.toLowerCase().includes(search.toLowerCase())
-              )
-              .map((channel) => (
-                <tr
-                  key={channel.id}
-                  className="border-t border-[#40444b] hover:bg-[#393c42] transition"
-                >
-                  <td className="p-4 font-medium">{channel.name}</td>
-                  <td className="p-4">{channel.members} Members</td>
-                  <td className="p-4 flex justify-center gap-3">
-                    <button
-                      disabled={joining}
-                      onClick={() => handleJoinChannel(channel.number)}
-                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md flex items-center gap-2 text-sm"
-                    >
-                      <FaSignInAlt />
-                      Join
-                    </button>
-                    <button
-                      onClick={() => handleDelete(channel.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md text-sm"
-                    >
-                      <FaTrash />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filtered.map((channel) => (
+          <div
+            key={channel.id}
+            className="bg-[#292b2f] p-6 rounded-xl shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <h2 className="text-lg font-semibold mb-1">{channel.name}</h2>
+              <p className="text-sm text-gray-400">{channel.members} Members</p>
+            </div>
+
+            <div className="mt-4 flex justify-between gap-3">
+              <button
+                onClick={() => handleJoinChannel(channel.number)}
+                disabled={joining}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm"
+              >
+                <FaSignInAlt />
+                Join
+              </button>
+              <button
+                onClick={() => handleDelete(channel.id)}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm"
+              >
+                <FaTrash />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }

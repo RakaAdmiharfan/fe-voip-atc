@@ -46,10 +46,7 @@ export default function ContactPage() {
   }, []);
 
   const handleCall = async (sipId: string) => {
-    if (!userAgent || !sipId) {
-      console.warn("SIP call blocked: userAgent or sipId invalid.");
-      return;
-    }
+    if (!userAgent || !sipId) return;
 
     setCalling(true);
     try {
@@ -62,10 +59,17 @@ export default function ContactPage() {
 
       console.log("📞 Calling URI:", uri.toString());
 
-      const inviter = new Inviter(userAgent, uri);
-      startCall(sipId, false, inviter); // pass inviter!
-      await inviter.invite(); // Kirim SIP INVITE (signaling)
-      setCurrentSession(inviter); // ✅ Simpan sesi untuk kontrol call
+      const inviter = new Inviter(userAgent, uri, {
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false },
+        },
+      });
+
+      startCall(sipId, false, inviter); // ✅ sudah set session
+
+      const outgoingRequest = await inviter.invite(); // ✅ invite kirim
+
+      console.log("✅ INVITE sent, waiting for 180 Ringing/200 OK...");
     } catch (err) {
       console.error("Call failed", err);
     } finally {
@@ -122,7 +126,7 @@ export default function ContactPage() {
       )}
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold mb-4 text-white">Contacts</h1>
+        <h1 className="text-2xl font-bold mb-4 pb-2 text-white ">Contacts</h1>
 
         <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
           <div className="w-52 md:w-80">

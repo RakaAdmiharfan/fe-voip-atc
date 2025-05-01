@@ -1,7 +1,12 @@
-// context/voipContext.tsx
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { UserAgent, Invitation } from "sip.js";
 import { useCall } from "@/context/callContext";
 
@@ -16,15 +21,30 @@ export const VoIPProvider = ({ children }: { children: React.ReactNode }) => {
   const [userAgent, setUserAgent] = useState<UserAgent | null>(null);
   const { receiveCall } = useCall();
 
+  const setupDelegate = useCallback(
+    (ua: UserAgent) => {
+      ua.delegate = {
+        onInvite: (invitation: Invitation) => {
+          console.log("📥 Incoming call received.");
+          receiveCall(invitation);
+        },
+      };
+    },
+    [receiveCall]
+  );
+
   useEffect(() => {
     if (!userAgent) return;
 
-    userAgent.delegate = {
-      onInvite: (invitation: Invitation) => {
-        receiveCall(invitation);
-      },
+    setupDelegate(userAgent);
+
+    return () => {
+      // Cleanup: Hapus delegate waktu userAgent berubah
+      if (userAgent) {
+        userAgent.delegate = {};
+      }
     };
-  }, [userAgent, receiveCall]);
+  }, [userAgent, setupDelegate]);
 
   return (
     <VoIPContext.Provider value={{ userAgent, setUserAgent }}>

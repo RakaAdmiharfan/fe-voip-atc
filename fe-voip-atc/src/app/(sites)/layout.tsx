@@ -8,6 +8,7 @@ import IncomingCallUI from "@/components/IncomingCallUI";
 import CallUI from "@/components/callUI";
 import { useSip } from "@/lib/useSip";
 import "react-toastify/dist/ReactToastify.css";
+import FloatingCallUIWrapper from "@/components/CallUIWrapper";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,20 +38,13 @@ const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
     <CallProvider>
       <VoIPProvider>
         <SipInitializer />
-
         <div className="flex h-screen">
-          <Suspense
-            fallback={<div className="text-white p-4">Loading sidebar...</div>}
-          >
-            <Sidebar />
-          </Suspense>
-
-          <div className="relative flex-1 flex flex-col w-screen bg-[#2f3136] overflow-hidden">
-            <IncomingCallUI />
+          <Sidebar />
+          <div className="relative flex-1 bg-[#2f3136]">
+            <FloatingCallUIWrapper />
             <main className="p-8 md:p-12 overflow-y-auto h-full">
               {children}
             </main>
-            <CallUI />
           </div>
         </div>
       </VoIPProvider>
