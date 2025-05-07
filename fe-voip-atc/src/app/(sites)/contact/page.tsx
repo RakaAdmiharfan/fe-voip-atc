@@ -50,26 +50,14 @@ export default function ContactPage() {
 
     setCalling(true);
     try {
-      const targetURI = `sip:${sipId}@sip.pttalk.id`;
-      const uri = UserAgent.makeURI(targetURI);
-      if (!uri) {
-        console.error("Invalid SIP URI");
-        return;
-      }
+      const uri = UserAgent.makeURI(`sip:${sipId}@sip.pttalk.id`);
+      if (!uri) throw new Error("Invalid SIP URI");
 
-      console.log("📞 Calling URI:", uri.toString());
+      const inviter = new Inviter(userAgent, uri);
 
-      const inviter = new Inviter(userAgent, uri, {
-        sessionDescriptionHandlerOptions: {
-          constraints: { audio: true, video: false },
-        },
-      });
+      await inviter.invite(); // Send INVITE first
 
-      startCall(sipId, false, inviter); // ✅ sudah set session
-
-      const outgoingRequest = await inviter.invite(); // ✅ invite kirim
-
-      console.log("✅ INVITE sent, waiting for 180 Ringing/200 OK...");
+      await startCall(inviter, sipId); // Let context handle media setup
     } catch (err) {
       console.error("Call failed", err);
     } finally {
@@ -126,7 +114,9 @@ export default function ContactPage() {
       )}
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold mb-4 pb-2 text-white ">Contacts</h1>
+        <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-20">
+          Contacts
+        </h1>
 
         <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
           <div className="w-52 md:w-80">

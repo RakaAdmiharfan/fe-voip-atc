@@ -32,10 +32,9 @@ interface CallContextType {
   setCallState: (state: CallContextType["callState"]) => void;
   participants: Participant[];
   setParticipants: (participants: Participant[]) => void;
-  startCall: (targetId: string, isChannel?: boolean, session?: Inviter) => void;
+  startCall: (inviter: Inviter, targetId: string) => void;
   receiveCall: (invitation: Invitation) => void;
   acceptCall: () => void;
-  declineCall: () => void;
   rejectCall: () => void;
   endCall: () => void;
   leaveChannel: () => void;
@@ -117,42 +116,39 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [endCall]);
 
   const startCall = useCallback(
-    (targetId: string, isChannelFlag = false, session?: Inviter) => {
-      // 🛡️ Clean dulu semua sebelum mulai call baru
-      if (outgoingTimeoutRef.current) clearTimeout(outgoingTimeoutRef.current);
-      outgoingTimeoutRef.current = null;
-      setCurrentSession(null);
-      setIncomingSession(null);
-      setParticipants([]);
-      setIsChannel(false);
-      cleanupAudioElements();
-      setCallState("idle"); // HANYA reset ke idle
-      // ⚡ lalu lanjut call baru
+    async (inviter: Inviter, targetId: string) => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
 
-      const self: Participant = {
-        id: "self",
-        username: "You",
-        avatar: "user.png",
-      };
-      setIsChannel(isChannelFlag);
+        const pc = (inviter.sessionDescriptionHandler as any)
+          ?.peerConnection as RTCPeerConnection;
 
-      if (isChannelFlag) {
-        setParticipants([self]);
-      } else {
+        stream.getTracks().forEach((track) => {
+          pc?.addTrack(track, stream);
+        });
+
+        const self: Participant = {
+          id: "self",
+          username: "You",
+          avatar: "user.png",
+        };
         const target: Participant = {
           id: targetId,
           username: targetId,
           avatar: "user.png",
         };
         setParticipants([self, target]);
-      }
 
-      setTimeout(() => {
-        setCallState(isChannelFlag ? "in-call" : "calling");
-        if (session) setCurrentSession(session);
-      }, 50);
+        setCallState("calling");
+        setCurrentSession(inviter);
+      } catch (err) {
+        console.error("startCall failed:", err);
+        hardResetCallState();
+      }
     },
-    []
+    [hardResetCallState]
   );
 
   const receiveCall = useCallback((invitation: Invitation) => {
@@ -176,7 +172,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const acceptCall = useCallback(async () => {
     if (!incomingSession) return;
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       await incomingSession.accept();
+
+      const pc = (incomingSession.sessionDescriptionHandler as any)
+        ?.peerConnection as RTCPeerConnection;
+      stream.getTracks().forEach((track) => {
+        pc?.addTrack(track, stream);
+      });
+
       setCurrentSession(incomingSession);
       setIncomingSession(null);
       setCallState("in-call");
@@ -197,17 +201,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to accept call:", error);
       hardResetCallState();
     }
-  }, [incomingSession, hardResetCallState]);
-
-  const declineCall = useCallback(() => {
-    if (!incomingSession) return;
-    try {
-      incomingSession.reject();
-    } catch (error) {
-      console.error("Failed to decline call:", error);
-    }
-    setCallState("ended");
-    setTimeout(hardResetCallState, 1000);
   }, [incomingSession, hardResetCallState]);
 
   useEffect(() => {
@@ -247,6 +240,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [callState, endCall]);
 
   useEffect(() => {
+    if (!incomingSession) return;
+
+    const onIncomingStateChange = (newState: SessionState) => {
+      console.log("[📞 Incoming Session State]", newState);
+      if (newState === SessionState.Terminated) {
+        setCallState("ended");
+        setTimeout(hardResetCallState, 1000);
+      }
+    };
+
+    incomingSession.stateChange.addListener(onIncomingStateChange);
+    return () =>
+      incomingSession.stateChange.removeListener(onIncomingStateChange);
+  }, [incomingSession, hardResetCallState]);
+
+  useEffect(() => {
     if (!currentSession) return;
 
     const onStateChange = (newState: SessionState) => {
@@ -282,7 +291,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         startCall,
         receiveCall,
         acceptCall,
-        declineCall,
         rejectCall,
         endCall,
         leaveChannel,

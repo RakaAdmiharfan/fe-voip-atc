@@ -99,7 +99,7 @@ export default function ModalAdd({
             {button1Text}
           </button>
           <button
-            className={`flex-1 ${button2Color ?? "bg-orange-400"} ${
+            className={`flex-1 ${button2Color ?? "bg-[#202225]"} ${
               button2TextColor ?? "text-white"
             } py-2 px-4 rounded-lg ml-2`}
             onClick={onButton2Click}

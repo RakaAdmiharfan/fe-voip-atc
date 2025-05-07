@@ -128,7 +128,7 @@ const Sidebar = () => {
               </Link>
             </li>
 
-            <li className="mt-4">
+            <li className="mt-6 lg:mt-4">
               <Link
                 href="/channel"
                 className={`flex items-center lg:p-2 rounded-lg ${
@@ -148,7 +148,7 @@ const Sidebar = () => {
               </Link>
             </li>
 
-            <li className="mt-4">
+            <li className="mt-6 lg:mt-4">
               <Link
                 href="/recordings"
                 className={`flex items-center lg:p-2 rounded-lg ${
@@ -168,7 +168,7 @@ const Sidebar = () => {
               </Link>
             </li>
 
-            <li className="mt-4">
+            <li className="mt-6 lg:mt-4">
               <Link
                 href="/settings"
                 className={`flex items-center lg:p-2 rounded-lg ${

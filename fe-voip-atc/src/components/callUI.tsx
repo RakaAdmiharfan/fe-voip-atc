@@ -5,6 +5,78 @@ import { useCall } from "@/context/callContext";
 import { IoMicOff, IoMic, IoCall, IoClose } from "react-icons/io5";
 import { SessionState } from "sip.js";
 
+// === SUBCOMPONENTS ===
+
+function IncomingCallControls({
+  callerId,
+  onAccept,
+  onReject,
+}: {
+  callerId: string;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="text-center">
+      <h2 className="text-lg font-bold text-white">Incoming Call</h2>
+      <p className="text-gray-300">
+        From: <span className="font-semibold text-white">{callerId}</span>
+      </p>
+      <div className="flex justify-center gap-6 mt-4">
+        <button
+          onClick={onReject}
+          className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white"
+          aria-label="Decline call"
+        >
+          <IoClose size={26} />
+        </button>
+        <button
+          onClick={onAccept}
+          className="p-4 rounded-full bg-green-600 hover:bg-green-700 text-white"
+          aria-label="Accept call"
+        >
+          <IoCall size={26} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OngoingCallControls({
+  muted,
+  toggleMute,
+  handleEnd,
+}: {
+  muted: boolean;
+  toggleMute: () => void;
+  handleEnd: () => void;
+}) {
+  return (
+    <>
+      <button
+        onClick={toggleMute}
+        className={`p-4 rounded-full transition ${
+          muted
+            ? "bg-red-600 hover:bg-red-700"
+            : "bg-[#40444b] hover:bg-[#525760]"
+        }`}
+        title={muted ? "Unmute" : "Mute"}
+      >
+        {muted ? <IoMicOff size={28} /> : <IoMic size={28} />}
+      </button>
+      <button
+        onClick={handleEnd}
+        className="p-4 rounded-full bg-red-600 hover:bg-red-700"
+        title="End Call"
+      >
+        <IoClose size={28} />
+      </button>
+    </>
+  );
+}
+
+// === MAIN CALL UI ===
+
 export default function CallUI() {
   const {
     currentSession,
@@ -50,19 +122,17 @@ export default function CallUI() {
         }
       });
 
-      pc?.getTransceivers().forEach((transceiver) => {
-        if (transceiver.sender.track?.kind === "audio") {
-          transceiver.direction = newMuted ? "recvonly" : "sendrecv";
-        }
-      });
-
       return newMuted;
     });
   };
 
   const handleEnd = isChannel ? leaveChannel : endCall;
-
   if (callState === "idle") return null;
+
+  const callerId =
+    incomingSession?.remoteIdentity?.displayName ||
+    incomingSession?.remoteIdentity?.uri?.user ||
+    "Unknown";
 
   return (
     <section className="absolute inset-0 z-40 bg-[#2f3136] text-white flex flex-col px-6 py-4 overflow-hidden">
@@ -73,63 +143,51 @@ export default function CallUI() {
         </p>
       </div>
 
-      <div className="flex-1 flex items-center">
-        <div className="mx-auto grid gap-8 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {participants.map((p) => (
+      <div className="flex-1 flex items-center justify-center">
+        <div
+          className={`grid gap-10 w-full max-w-6xl px-4 py-10 ${
+            participants.length === 1
+              ? "grid-cols-1"
+              : participants.length === 2
+              ? "grid-cols-2"
+              : participants.length <= 4
+              ? "grid-cols-2 md:grid-cols-4"
+              : "grid-cols-3 md:grid-cols-4"
+          }`}
+        >
+          {participants.map((user) => (
             <div
-              key={p.id}
-              className="bg-[#292b2f] rounded-xl p-6 text-center w-60 h-52 flex flex-col items-center justify-center"
+              key={user.id}
+              className="flex flex-col items-center p-6 rounded-xl bg-[#292b2f] hover:bg-[#40444b] transition min-h-[200px]"
             >
-              <img
-                src={p.avatar}
-                className="w-24 h-24 rounded-full object-cover"
-                alt={p.username}
-              />
-              <p className="mt-3 text-base font-medium">{p.username}</p>
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#202225] bg-[#202225] flex items-center justify-center shadow-md">
+                <img
+                  src={user.avatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="mt-5 text-base font-medium text-gray-200">
+                {user.username}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-10 flex gap-4 justify-center">
+      <div className="mt-10 mb-4 flex gap-4 justify-center">
         {callState === "ringing" ? (
-          <>
-            <button
-              onClick={acceptCall}
-              className="p-4 rounded-full bg-green-600 hover:bg-green-700"
-              title="Accept Call"
-            >
-              <IoCall size={28} />
-            </button>
-            <button
-              onClick={rejectCall}
-              className="p-4 rounded-full bg-red-600 hover:bg-red-700"
-              title="Decline Call"
-            >
-              <IoClose size={28} />
-            </button>
-          </>
+          <IncomingCallControls
+            callerId={callerId}
+            onAccept={acceptCall}
+            onReject={rejectCall}
+          />
         ) : (
-          <>
-            <button
-              onClick={toggleMute}
-              className={`p-4 rounded-full transition ${
-                muted
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-[#40444b] hover:bg-[#525760]"
-              }`}
-              title={muted ? "Unmute" : "Mute"}
-            >
-              {muted ? <IoMicOff size={28} /> : <IoMic size={28} />}
-            </button>
-            <button
-              onClick={handleEnd}
-              className="p-4 rounded-full bg-red-600 hover:bg-red-700"
-              title="End Call"
-            >
-              <IoClose size={28} />
-            </button>
-          </>
+          <OngoingCallControls
+            muted={muted}
+            toggleMute={toggleMute}
+            handleEnd={handleEnd}
+          />
         )}
       </div>
     </section>

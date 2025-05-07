@@ -4,11 +4,9 @@ import React, { useEffect, useState, Suspense } from "react";
 import Sidebar from "@/components/sidebar";
 import { VoIPProvider } from "@/context/voipContext";
 import { CallProvider } from "@/context/callContext";
-import IncomingCallUI from "@/components/IncomingCallUI";
 import CallUI from "@/components/callUI";
 import { useSip } from "@/lib/useSip";
 import "react-toastify/dist/ReactToastify.css";
-import FloatingCallUIWrapper from "@/components/CallUIWrapper";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -41,8 +39,8 @@ const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex h-screen">
           <Sidebar />
           <div className="relative flex-1 bg-[#2f3136]">
-            <FloatingCallUIWrapper />
-            <main className="p-8 md:p-12 overflow-y-auto h-full">
+            <CallUI />
+            <main className="ml-12 lg:ml-0 p-8 md:p-12 overflow-y-auto h-full w-">
               {children}
             </main>
           </div>

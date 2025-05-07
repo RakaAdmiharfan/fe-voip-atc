@@ -57,7 +57,9 @@ export default function VoiceSettingsPage() {
 
   return (
     <div className="text-white p-6 bg-[#2f3136] min-h-screen space-y-8">
-      <h1 className="text-2xl font-bold">Voice & Video</h1>
+      <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-20">
+        Voice Settings
+      </h1>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div>

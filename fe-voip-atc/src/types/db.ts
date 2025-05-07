@@ -18,6 +18,19 @@ export interface ContactRow extends RowDataPacket {
   created_at: Date;
 }
 
+// === CALL LIST TABLE ===
+export interface CallListRow extends RowDataPacket {
+  call_id: string;
+  caller_id: string;
+  receiver_id: string;
+  start_time: Date;
+  end_time: Date;
+  recording_filename: string | null;
+  s3_url: string | null;
+  recording_uploaded: number;
+  status: string;
+}
+
 // === PS_AUTH TABLE ===
 export interface PsAuthRow extends RowDataPacket {
   id: string;

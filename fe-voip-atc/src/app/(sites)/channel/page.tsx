@@ -49,7 +49,7 @@ export default function ChannelPage() {
 
   return (
     <section className="flex flex-col gap-6 text-white">
-      <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-30">
+      <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-20">
         Channel
       </h1>
 
