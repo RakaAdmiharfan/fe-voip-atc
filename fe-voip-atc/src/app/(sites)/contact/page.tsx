@@ -10,6 +10,7 @@ import { Inviter, UserAgent } from "sip.js";
 import ModalAdd from "@/components/modal-add";
 import Button from "@/components/button";
 import { useCall } from "@/context/callContext";
+import { toast } from "react-toastify";
 
 interface Contact {
   id: string; // contact_id
@@ -66,16 +67,28 @@ export default function ContactPage() {
   };
 
   const handleDelete = async (contactId: string) => {
-    const res = await fetch(`/api/contacts?id=${contactId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setContacts((prev) => prev.filter((c) => c.id !== contactId));
+    try {
+      const res = await fetch(`/api/contacts?id=${contactId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setContacts((prev) => prev.filter((c) => c.id !== contactId));
+        toast.success("Kontak berhasil dihapus");
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Gagal menghapus kontak");
+      }
+    } catch (error) {
+      console.error("Failed to delete contact", error);
+      toast.error("Terjadi kesalahan saat menghapus kontak");
     }
   };
 
   const handleAddContact = async () => {
-    if (!form.username.trim()) return;
+    if (!form.username.trim()) {
+      toast.warn("Username tidak boleh kosong");
+      return;
+    }
     try {
       const res = await fetch("/api/contacts", {
         method: "POST",
@@ -86,12 +99,14 @@ export default function ContactPage() {
         fetchContacts();
         setForm({ username: "", name: "" });
         setModalOpen(false);
+        toast.success("Kontak berhasil ditambahkan");
       } else {
         const data = await res.json();
-        alert(data.message);
+        toast.error(data.message || "Gagal menambahkan kontak");
       }
     } catch (error) {
       console.error("Failed to add contact", error);
+      toast.error("Terjadi kesalahan saat menambahkan kontak");
     }
   };
 

@@ -7,6 +7,7 @@ import { CallProvider } from "@/context/callContext";
 import CallUI from "@/components/callUI";
 import { useSip } from "@/lib/useSip";
 import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -36,6 +37,7 @@ const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
     <CallProvider>
       <VoIPProvider>
         <SipInitializer />
+        <ToastContainer position="top-right" autoClose={3000} />
         <div className="flex h-screen">
           <Sidebar />
           <div className="relative flex-1 bg-[#2f3136]">

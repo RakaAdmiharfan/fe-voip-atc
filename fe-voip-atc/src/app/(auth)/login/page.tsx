@@ -5,21 +5,20 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import TextField from "@/components/textfield";
 import Button from "@/components/button";
-import Toast from "@/components/toast";
 import Link from "next/link";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage("");
 
     try {
       const response = await axios.post(`/api/login`, { username, password });
@@ -27,18 +26,16 @@ export default function LoginPage() {
 
       if (!sipConfig) throw new Error("Invalid SIP configuration from backend");
 
-      // ✅ Simpan ke localStorage (biar bisa dipakai oleh useSip di layout setelah login)
       localStorage.setItem("sipConfig", JSON.stringify(sipConfig));
-
-      // ✅ Arahkan user ke halaman dashboard (yang di dalam VoIPProvider)
+      toast.success(response.data.message || "Login Berhasil.");
       router.push("/contact");
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        setErrorMessage(error.response?.data?.message || "Login failed");
+        toast.error(error.response?.data?.message || "Login failed");
       } else if (error instanceof Error) {
-        setErrorMessage(error.message);
+        toast.error(error.message);
       } else {
-        setErrorMessage("Login failed");
+        toast.error("Login failed");
       }
     } finally {
       setIsLoading(false);
@@ -47,20 +44,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#1e1f22] flex items-center justify-center p-4">
+      <ToastContainer position="top-right" autoClose={3000} />
+
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <h2 className="text-3xl font-bold text-center text-gray-900">Login</h2>
         <p className="text-center text-gray-500 mb-6">
           Welcome back! Please enter your credentials.
         </p>
-
-        {errorMessage && (
-          <Toast
-            type="error"
-            title="Login Failed"
-            description={errorMessage}
-            onClick={() => setErrorMessage("")}
-          />
-        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <TextField

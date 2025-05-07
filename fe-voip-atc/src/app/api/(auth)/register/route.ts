@@ -46,6 +46,14 @@ export async function POST(req: Request) {
     // Ambil ID auto-increment sebagai SIP ID
     const sipId = result.insertId.toString();
 
+    // ✅ Insert default settings ke user_settings
+    await db.execute(
+      `INSERT INTO user_settings 
+   (user_id, input_device_id, output_device_id, input_volume, output_volume, ptt_key) 
+   VALUES (?, NULL, NULL, 50, 50, 'Control')`,
+      [sipId]
+    );
+
     // Simpan ke ps_auths
     await db.execute(
       `INSERT INTO ps_auths (id, auth_type, username, password) VALUES (?, 'userpass', ?, ?)`,

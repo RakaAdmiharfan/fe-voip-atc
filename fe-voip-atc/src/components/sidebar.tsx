@@ -13,6 +13,7 @@ import ModalApprove from "./modal-approval";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 
 const Sidebar = () => {
   const searchParams = useSearchParams();
@@ -28,9 +29,9 @@ const Sidebar = () => {
     setNavOpen(false);
     if (pathname === "/contact") {
       setActive(1);
-    } else if (pathname === "/call-list") {
-      setActive(2);
     } else if (pathname === "/channel") {
+      setActive(2);
+    } else if (pathname === "/recordings") {
       setActive(3);
     } else if (pathname === "/settings") {
       setActive(4);
@@ -44,10 +45,10 @@ const Sidebar = () => {
       await fetch("/api/logout", {
         method: "POST",
       });
-
+      toast.success("Logout Berhasil.");
       router.push("/login");
     } catch (error) {
-      console.error("Logout error:", error);
+      toast.error("Logout Gagal");
     }
   };
 
@@ -132,7 +133,7 @@ const Sidebar = () => {
               <Link
                 href="/channel"
                 className={`flex items-center lg:p-2 rounded-lg ${
-                  active === 3
+                  active === 2
                     ? "text-white font-semibold lg:bg-[#40444b]"
                     : "text-white hover:bg-[#2f3136]"
                 }`}
@@ -152,7 +153,7 @@ const Sidebar = () => {
               <Link
                 href="/recordings"
                 className={`flex items-center lg:p-2 rounded-lg ${
-                  active === 2
+                  active === 3
                     ? "text-white font-semibold lg:bg-[#40444b]"
                     : "text-white hover:bg-[#2f3136]"
                 }`}

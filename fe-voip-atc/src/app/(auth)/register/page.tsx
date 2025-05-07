@@ -4,26 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
-
 import TextField from "@/components/textfield";
 import Button from "@/components/button";
-import Toast from "@/components/toast";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage("");
 
     if (!username || !password) {
-      setErrorMessage("Username dan password wajib diisi.");
+      toast.error("Username dan password wajib diisi.");
       setIsLoading(false);
       return;
     }
@@ -35,18 +33,19 @@ export default function Register() {
       });
 
       if (response.status === 200) {
+        toast.success(response.data.message || "Registrasi Berhasil.");
         router.push("/login");
       } else {
-        setErrorMessage(response.data.message || "Registrasi gagal.");
+        toast.error(response.data.message || "Registrasi gagal.");
       }
     } catch (err: unknown) {
       console.error("Register Error:", err);
       if (axios.isAxiosError(err)) {
-        setErrorMessage(
+        toast.error(
           err.response?.data?.message || "Terjadi kesalahan saat register."
         );
       } else {
-        setErrorMessage("Terjadi kesalahan yang tidak diketahui.");
+        toast.error("Terjadi kesalahan yang tidak diketahui.");
       }
     } finally {
       setIsLoading(false);
@@ -55,6 +54,8 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-[#1e1f22] flex items-center justify-center p-4">
+      <ToastContainer position="top-right" autoClose={3000} />
+
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <h2 className="text-3xl font-bold text-center text-gray-900">
           Register
@@ -62,15 +63,6 @@ export default function Register() {
         <p className="text-center text-gray-500 mb-6">
           Welcome! Please sign up for your account.
         </p>
-
-        {errorMessage && (
-          <Toast
-            type="error"
-            title="Register Failed"
-            description={errorMessage}
-            onClick={() => setErrorMessage("")}
-          />
-        )}
 
         <form onSubmit={handleRegister} className="space-y-4">
           <TextField

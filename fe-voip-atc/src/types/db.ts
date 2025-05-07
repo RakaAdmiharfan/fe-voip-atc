@@ -9,6 +9,17 @@ export interface UserRow extends RowDataPacket {
   sip_password: string;
 }
 
+// === USER SETTINGS TABLE ===
+export interface UserSettingsRow extends RowDataPacket {
+  user_id: string;
+  input_device_id: string | null;
+  output_device_id: string | null;
+  input_volume: number;
+  output_volume: number;
+  ptt_key: string;
+  updated_at: Date;
+}
+
 // === CONTACTS TABLE ===
 export interface ContactRow extends RowDataPacket {
   contact_id: number;

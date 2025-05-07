@@ -42,6 +42,8 @@ interface CallContextType {
   setIsChannel: (flag: boolean) => void;
   incomingSession: Invitation | null;
   setIncomingSession: (session: Invitation | null) => void;
+  gainRef: React.MutableRefObject<GainNode | null>;
+  audioContextRef: React.MutableRefObject<AudioContext | null>;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -60,11 +62,42 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isChannel, setIsChannel] = useState(false);
   const outgoingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const gainRef = useRef<GainNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const inputDeviceIdRef = useRef<string | null>(null);
+  const outputDeviceIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.input_device_id)
+          inputDeviceIdRef.current = data.input_device_id;
+        if (data?.output_device_id)
+          outputDeviceIdRef.current = data.output_device_id;
+      })
+      .catch((err) => {
+        console.error("Failed to fetch device settings", err);
+      });
+  }, []);
+
   const cleanupAudioElements = () => {
     document.querySelectorAll("audio").forEach((audio) => audio.remove());
   };
 
-  const hardResetCallState = useCallback(() => {
+  const closeAudioContextSafe = async () => {
+    try {
+      if (audioContextRef.current?.state !== "closed") {
+        await audioContextRef.current?.close();
+      }
+    } catch (err) {
+      console.warn("AudioContext already closed or failed to close");
+    }
+    audioContextRef.current = null;
+    gainRef.current = null;
+  };
+
+  const hardResetCallState = useCallback(async () => {
     if (outgoingTimeoutRef.current) clearTimeout(outgoingTimeoutRef.current);
     outgoingTimeoutRef.current = null;
     setCurrentSession(null);
@@ -73,14 +106,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIsChannel(false);
     setCallState("idle");
     cleanupAudioElements();
+    await closeAudioContextSafe(); // ✅ tunggu sampai benar-benar tertutup
   }, []);
 
-  const endCall = useCallback(() => {
+  const endCall = useCallback(async () => {
     if (!currentSession) {
       setCallState("ended");
-      setTimeout(hardResetCallState, 1000);
+      setTimeout(() => {
+        hardResetCallState(); // ✅ jangan pakai await di sini
+      }, 1000);
       return;
     }
+
     try {
       if (
         currentSession.state === SessionState.Initial ||
@@ -96,50 +133,119 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       console.error("Error ending call:", err);
     } finally {
       setCallState("ended");
-      setTimeout(hardResetCallState, 1000);
+      setTimeout(() => {
+        hardResetCallState(); // ✅ tetap async di dalam
+      }, 1000);
     }
   }, [currentSession, hardResetCallState]);
 
   const rejectCall = useCallback(() => {
     if (!incomingSession) return;
+
     try {
       incomingSession.reject();
     } catch (error) {
       console.error("Failed to reject incoming call:", error);
     }
+
     setCallState("ended");
-    setTimeout(hardResetCallState, 1000);
+    setTimeout(() => {
+      hardResetCallState();
+    }, 1000);
   }, [incomingSession, hardResetCallState]);
 
   const leaveChannel = useCallback(() => {
     endCall();
   }, [endCall]);
 
+  // const setupAudioStream = async () => {
+  //   const rawStream = await navigator.mediaDevices.getUserMedia({
+  //     audio: inputDeviceIdRef.current
+  //       ? { deviceId: { exact: inputDeviceIdRef.current } }
+  //       : true,
+  //   });
+
+  //   const audioCtx = new AudioContext();
+  //   const source = audioCtx.createMediaStreamSource(rawStream);
+  //   const gainNode = audioCtx.createGain();
+  //   gainNode.gain.value = 0;
+  //   source.connect(gainNode);
+
+  //   const destination = audioCtx.createMediaStreamDestination(); // ✅
+  //   gainNode.connect(destination);
+
+  //   gainRef.current = gainNode;
+  //   audioContextRef.current = audioCtx;
+
+  //   return destination.stream; // ✅ use this instead of rawStream
+  // };
+
+  const setupAudioStream = async () => {
+    const rawStream = await navigator.mediaDevices.getUserMedia({
+      audio: inputDeviceIdRef.current
+        ? { deviceId: { exact: inputDeviceIdRef.current } }
+        : true,
+    });
+
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(rawStream);
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0; // ✅ Always start muted
+
+    const destination = audioCtx.createMediaStreamDestination();
+    source.connect(gainNode);
+    gainNode.connect(destination); // ✅ Connect to destination
+
+    gainRef.current = gainNode;
+    audioContextRef.current = audioCtx;
+
+    return destination.stream; // ✅ Return stream to use in addTrack
+  };
+
   const startCall = useCallback(
     async (inviter: Inviter, targetId: string) => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
+        const stream = await setupAudioStream();
 
         const pc = (inviter.sessionDescriptionHandler as any)
           ?.peerConnection as RTCPeerConnection;
 
-        stream.getTracks().forEach((track) => {
-          pc?.addTrack(track, stream);
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = false;
+          console.log(
+            "[startCall] BEFORE replace/add: track.enabled =",
+            track.enabled
+          );
+
+          const existingSender = pc
+            ?.getSenders()
+            .find((s) => s.track?.kind === "audio");
+
+          if (existingSender) {
+            console.log("[startCall] Replacing existing audio track");
+            existingSender.replaceTrack(track);
+          } else {
+            console.log("[startCall] Adding new audio track");
+            pc?.addTrack(track, stream);
+          }
+
+          console.log(
+            "[startCall] AFTER replace/add: track.enabled =",
+            track.enabled
+          );
         });
 
-        const self: Participant = {
-          id: "self",
-          username: "You",
-          avatar: "user.png",
-        };
-        const target: Participant = {
-          id: targetId,
-          username: targetId,
-          avatar: "user.png",
-        };
-        setParticipants([self, target]);
+        console.log("[startCall] Senders after setup:");
+        pc?.getSenders().forEach((s, i) => {
+          console.log(
+            `Sender[${i}]: kind=${s.track?.kind}, enabled=${s.track?.enabled}`
+          );
+        });
+
+        setParticipants([
+          { id: "self", username: "You", avatar: "user.png" },
+          { id: targetId, username: targetId, avatar: "user.png" },
+        ]);
 
         setCallState("calling");
         setCurrentSession(inviter);
@@ -155,51 +261,66 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIncomingSession(invitation);
     setCallState("ringing");
 
-    const self: Participant = {
-      id: "self",
-      username: "You",
-      avatar: "user.png",
-    };
     const caller = invitation.remoteIdentity.uri.user || "unknown";
-    const from: Participant = {
-      id: caller,
-      username: caller,
-      avatar: "user.png",
-    };
-    setParticipants([from, self]);
+    setParticipants([
+      { id: caller, username: caller, avatar: "user.png" },
+      { id: "self", username: "You", avatar: "user.png" },
+    ]);
   }, []);
 
   const acceptCall = useCallback(async () => {
     if (!incomingSession) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await setupAudioStream();
       await incomingSession.accept();
 
       const pc = (incomingSession.sessionDescriptionHandler as any)
         ?.peerConnection as RTCPeerConnection;
-      stream.getTracks().forEach((track) => {
-        pc?.addTrack(track, stream);
+
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+        console.log(
+          "[acceptCall] BEFORE replace/add: track.enabled =",
+          track.enabled
+        );
+
+        const existingSender = pc
+          ?.getSenders()
+          .find((s) => s.track?.kind === "audio");
+
+        if (existingSender) {
+          console.log("[acceptCall] Replacing existing audio track");
+          existingSender.replaceTrack(track);
+        } else {
+          console.log("[acceptCall] Adding new audio track");
+          pc?.addTrack(track, stream);
+        }
+
+        console.log(
+          "[acceptCall] AFTER replace/add: track.enabled =",
+          track.enabled
+        );
       });
+
+      console.log("[acceptCall] Senders after setup:");
+      pc?.getSenders().forEach((s, i) => {
+        console.log(
+          `Sender[${i}]: kind=${s.track?.kind}, enabled=${s.track?.enabled}`
+        );
+      });
+
+      const caller = incomingSession.remoteIdentity.uri.user || "unknown";
+      setParticipants([
+        { id: caller, username: caller, avatar: "user.png" },
+        { id: "self", username: "You", avatar: "user.png" },
+      ]);
 
       setCurrentSession(incomingSession);
       setIncomingSession(null);
       setCallState("in-call");
-
-      const self: Participant = {
-        id: "self",
-        username: "You",
-        avatar: "user.png",
-      };
-      const caller = incomingSession.remoteIdentity.uri.user || "unknown";
-      const from: Participant = {
-        id: caller,
-        username: caller,
-        avatar: "user.png",
-      };
-      setParticipants([from, self]);
     } catch (error) {
       console.error("Failed to accept call:", error);
-      hardResetCallState();
+      await hardResetCallState();
     }
   }, [incomingSession, hardResetCallState]);
 
@@ -220,12 +341,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       });
 
     const audio = document.createElement("audio");
+    audio.id = "remote-audio";
     audio.srcObject = remoteStream;
     audio.autoplay = true;
     audio.setAttribute("playsinline", "true");
     audio.style.display = "none";
     audio.volume = 1;
+
+    if (
+      outputDeviceIdRef.current &&
+      typeof (audio as any).setSinkId === "function"
+    ) {
+      (audio as any).setSinkId(outputDeviceIdRef.current).catch(console.warn);
+    }
+
     document.body.appendChild(audio);
+
+    return () => {
+      audio.pause();
+      audio.srcObject = null;
+      document.getElementById("remote-audio")?.remove();
+    };
   }, [currentSession]);
 
   useEffect(() => {
@@ -243,39 +379,61 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (!incomingSession) return;
 
     const onIncomingStateChange = (newState: SessionState) => {
-      console.log("[📞 Incoming Session State]", newState);
       if (newState === SessionState.Terminated) {
         setCallState("ended");
-        setTimeout(hardResetCallState, 1000);
+        setTimeout(async () => {
+          await hardResetCallState();
+        }, 1000);
       }
     };
 
     incomingSession.stateChange.addListener(onIncomingStateChange);
-    return () =>
+    return () => {
       incomingSession.stateChange.removeListener(onIncomingStateChange);
+    };
   }, [incomingSession, hardResetCallState]);
 
   useEffect(() => {
     if (!currentSession) return;
 
     const onStateChange = (newState: SessionState) => {
-      console.log("[📞 Session State]", newState);
-
-      if (newState === SessionState.Established) {
-        if (outgoingTimeoutRef.current) {
-          clearTimeout(outgoingTimeoutRef.current);
-          outgoingTimeoutRef.current = null;
-        }
+      if (newState === SessionState.Established && outgoingTimeoutRef.current) {
+        clearTimeout(outgoingTimeoutRef.current);
+        outgoingTimeoutRef.current = null;
       } else if (newState === SessionState.Terminated) {
-        console.log("[📴 Session Terminated]");
         setCallState("ended");
-        setTimeout(hardResetCallState, 1000);
+        setTimeout(async () => {
+          await hardResetCallState();
+        }, 1000);
       }
     };
 
     currentSession.stateChange.addListener(onStateChange);
-    return () => currentSession.stateChange.removeListener(onStateChange);
+    return () => {
+      currentSession.stateChange.removeListener(onStateChange);
+    };
   }, [currentSession, hardResetCallState]);
+
+  useEffect(() => {
+    if (callState === "in-call") {
+      const session = currentSession;
+      const pc = (session?.sessionDescriptionHandler as any)?.peerConnection as
+        | RTCPeerConnection
+        | undefined;
+
+      const sender = pc?.getSenders().find((s) => s.track?.kind === "audio");
+
+      if (sender?.track) {
+        sender.track.enabled = false;
+        console.log(
+          "[FORCE-MUTE] Enforcing mute after in-call: track.enabled =",
+          sender.track.enabled
+        );
+      } else {
+        console.warn("[FORCE-MUTE] Sender track not found");
+      }
+    }
+  }, [callState, currentSession]);
 
   return (
     <CallContext.Provider
@@ -296,6 +454,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         leaveChannel,
         isChannel,
         setIsChannel,
+        gainRef,
+        audioContextRef,
       }}
     >
       {children}

@@ -6,6 +6,7 @@ import { FaPlay } from "react-icons/fa";
 import { CallListRow } from "@/types/db";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
+import Loading from "@/components/loading";
 
 function getDuration(start: Date, end: Date): string {
   const diff = Math.floor((end.getTime() - start.getTime()) / 1000);
@@ -35,9 +36,11 @@ export default function RecordingPage() {
   const [tab, setTab] = useState<"private" | "channel">("private");
   const [recordings, setRecordings] = useState<CallListRow[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchRecordings = async () => {
+      setIsLoading(true); // mulai loading
       try {
         const res = await fetch(
           tab === "private"
@@ -55,6 +58,8 @@ export default function RecordingPage() {
         setRecordings(parsed);
       } catch (err) {
         console.error("Failed to fetch recordings", err);
+      } finally {
+        setIsLoading(false); // selesai loading
       }
     };
 
@@ -87,7 +92,11 @@ export default function RecordingPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="col-span-full flex justify-center items-center py-24">
+            <Loading />
+          </div>
+        ) : filtered.length === 0 ? (
           <p className="text-gray-400 text-center col-span-full">
             Tidak ada recording.
           </p>
@@ -123,11 +132,11 @@ export default function RecordingPage() {
               </div>
 
               <AudioPlayer
-                src={r.recording_s3_url ?? ""}
+                src={r.recording_s3_url ?? null}
                 showJumpControls={false}
                 customVolumeControls={[RHAP_UI.VOLUME]}
                 layout="horizontal"
-                className="!bg-gray-200 !rounded-lg !px-4 !py-2 "
+                className="!bg-gray-200 !rounded-lg !px-4 !py-2"
               />
 
               <div className="flex justify-end">

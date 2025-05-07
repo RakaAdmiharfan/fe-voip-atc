@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCall } from "@/context/callContext";
 import { IoMicOff, IoMic, IoCall, IoClose } from "react-icons/io5";
 import { SessionState } from "sip.js";
-
-// === SUBCOMPONENTS ===
+import { toast } from "react-toastify";
 
 function IncomingCallControls({
   callerId,
@@ -26,14 +25,12 @@ function IncomingCallControls({
         <button
           onClick={onReject}
           className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white"
-          aria-label="Decline call"
         >
           <IoClose size={26} />
         </button>
         <button
           onClick={onAccept}
           className="p-4 rounded-full bg-green-600 hover:bg-green-700 text-white"
-          aria-label="Accept call"
         >
           <IoCall size={26} />
         </button>
@@ -43,26 +40,23 @@ function IncomingCallControls({
 }
 
 function OngoingCallControls({
-  muted,
-  toggleMute,
+  isPTTPressed,
   handleEnd,
 }: {
-  muted: boolean;
-  toggleMute: () => void;
+  isPTTPressed: boolean;
   handleEnd: () => void;
 }) {
   return (
     <>
       <button
-        onClick={toggleMute}
         className={`p-4 rounded-full transition ${
-          muted
-            ? "bg-red-600 hover:bg-red-700"
-            : "bg-[#40444b] hover:bg-[#525760]"
+          isPTTPressed
+            ? "bg-[#40444b] hover:bg-[#525760]"
+            : "bg-red-600 hover:bg-red-700"
         }`}
-        title={muted ? "Unmute" : "Mute"}
+        title={isPTTPressed ? "Unmute (PTT Active)" : "Muted"}
       >
-        {muted ? <IoMicOff size={28} /> : <IoMic size={28} />}
+        {isPTTPressed ? <IoMic size={28} /> : <IoMicOff size={28} />}
       </button>
       <button
         onClick={handleEnd}
@@ -75,8 +69,6 @@ function OngoingCallControls({
   );
 }
 
-// === MAIN CALL UI ===
-
 export default function CallUI() {
   const {
     currentSession,
@@ -88,10 +80,30 @@ export default function CallUI() {
     rejectCall,
     endCall,
     leaveChannel,
+    gainRef,
+    audioContextRef,
   } = useCall();
 
-  const [muted, setMuted] = useState(false);
   const [status, setStatus] = useState("Connecting...");
+  const [isPTTPressed, setIsPTTPressed] = useState(false);
+  const [pttKey, setPttKey] = useState("Control");
+  const keyPressedRef = useRef(false);
+  const getPeerConnection = () => {
+    return (currentSession?.sessionDescriptionHandler as any)
+      ?.peerConnection as RTCPeerConnection | undefined;
+  };
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ptt_key) setPttKey(data.ptt_key);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch pttKey", err);
+        toast.error("Gagal memuat tombol PTT");
+      });
+  }, []);
 
   useEffect(() => {
     const session = currentSession || incomingSession;
@@ -101,8 +113,7 @@ export default function CallUI() {
       const s = session.state;
       if (s === SessionState.Established) setStatus("Connected");
       else if (s === SessionState.Terminated) setStatus("Ended");
-      else if (s === SessionState.Establishing || s === SessionState.Initial)
-        setStatus("Connecting...");
+      else setStatus("Connecting...");
     };
 
     updateStatus();
@@ -110,23 +121,126 @@ export default function CallUI() {
     return () => session.stateChange.removeListener(updateStatus);
   }, [currentSession, incomingSession]);
 
-  const toggleMute = () => {
-    setMuted((prev) => {
-      const newMuted = !prev;
-      const pc = (currentSession?.sessionDescriptionHandler as any)
-        ?.peerConnection as RTCPeerConnection;
+  // useEffect(() => {
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     if (e.key === pttKey && !keyPressedRef.current) {
+  //       keyPressedRef.current = true;
+  //       if (gainRef.current && audioContextRef.current) {
+  //         gainRef.current.gain.setValueAtTime(
+  //           1,
+  //           audioContextRef.current.currentTime
+  //         );
+  //       }
+  //       console.log("[PTT] Key down:", gainRef.current?.gain.value);
 
-      pc?.getSenders().forEach((sender) => {
-        if (sender.track?.kind === "audio") {
-          sender.track.enabled = !newMuted;
+  //       setIsPTTPressed(true);
+  //     }
+  //   };
+
+  //   const handleKeyUp = (e: KeyboardEvent) => {
+  //     if (e.key === pttKey && keyPressedRef.current) {
+  //       keyPressedRef.current = false;
+  //       if (gainRef.current && audioContextRef.current) {
+  //         gainRef.current.gain.setValueAtTime(
+  //           0,
+  //           audioContextRef.current.currentTime
+  //         );
+  //       }
+  //       console.log("[PTT] Key up:", gainRef.current?.gain.value);
+
+  //       setIsPTTPressed(false);
+  //     }
+  //   };
+
+  //   window.addEventListener("keydown", handleKeyDown);
+  //   window.addEventListener("keyup", handleKeyUp);
+  //   return () => {
+  //     window.removeEventListener("keydown", handleKeyDown);
+  //     window.removeEventListener("keyup", handleKeyUp);
+  //   };
+  // }, [pttKey, gainRef, audioContextRef]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === pttKey &&
+        gainRef.current &&
+        audioContextRef.current &&
+        !keyPressedRef.current
+      ) {
+        keyPressedRef.current = true;
+        gainRef.current.gain.setValueAtTime(
+          1,
+          audioContextRef.current.currentTime
+        );
+
+        // ✅ Enable track for outgoing stream
+        const pc = getPeerConnection();
+        const track = pc
+          ?.getSenders()
+          .find((s) => s.track?.kind === "audio")?.track;
+        if (track) {
+          track.enabled = true;
+          console.log("[PTT] gain =", gainRef.current?.gain.value);
+          console.log("[PTT] track.enabled =", track?.enabled);
         }
-      });
 
-      return newMuted;
-    });
-  };
+        setIsPTTPressed(true);
+        console.log("[PTT] Key down: gain =", gainRef.current.gain.value);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (
+        e.key === pttKey &&
+        gainRef.current &&
+        audioContextRef.current &&
+        keyPressedRef.current
+      ) {
+        keyPressedRef.current = false;
+        gainRef.current.gain.setValueAtTime(
+          0,
+          audioContextRef.current.currentTime
+        );
+
+        // ✅ Disable track so remote peer gets no audio
+        const pc = getPeerConnection();
+        const track = pc
+          ?.getSenders()
+          .find((s) => s.track?.kind === "audio")?.track;
+
+        if (track) {
+          track.enabled = false;
+          console.log("[PTT] gain =", gainRef.current?.gain.value);
+          console.log("[PTT] track.enabled =", track?.enabled);
+        }
+
+        setIsPTTPressed(false);
+        console.log("[PTT] Key up: gain =", gainRef.current.gain.value);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [pttKey, currentSession]);
+
+  // useEffect(() => {
+  //   if (callState === "ended") {
+  //     try {
+  //       audioContextRef.current?.close();
+  //     } catch (e) {
+  //       console.warn("Failed to close audio context:", e);
+  //     }
+  //     gainRef.current = null;
+  //   }
+  // }, [callState]);
 
   const handleEnd = isChannel ? leaveChannel : endCall;
+
   if (callState === "idle") return null;
 
   const callerId =
@@ -136,6 +250,11 @@ export default function CallUI() {
 
   return (
     <section className="absolute inset-0 z-40 bg-[#2f3136] text-white flex flex-col px-6 py-4 overflow-hidden">
+      {isPTTPressed && (
+        <div className="absolute top-4 right-4 bg-green-600 text-white px-3 py-1 rounded">
+          PTT Active
+        </div>
+      )}
       <div className="text-left mb-6">
         <h2 className="text-xl font-semibold">{status}</h2>
         <p className="text-sm text-gray-400">
@@ -146,7 +265,7 @@ export default function CallUI() {
       <div className="flex-1 flex items-center justify-center">
         <div
           className={`grid gap-10 w-full max-w-6xl px-4 py-10 ${
-            participants.length === 1
+            participants.length <= 1
               ? "grid-cols-1"
               : participants.length === 2
               ? "grid-cols-2"
@@ -184,8 +303,7 @@ export default function CallUI() {
           />
         ) : (
           <OngoingCallControls
-            muted={muted}
-            toggleMute={toggleMute}
+            isPTTPressed={isPTTPressed}
             handleEnd={handleEnd}
           />
         )}
