@@ -122,7 +122,7 @@ export default function VoiceSettingsPage() {
   return (
     <div className="text-white p-6 bg-[#2f3136] min-h-screen space-y-8">
       <h1 className="text-2xl font-bold mb-4 pb-2 border-b-2 border-white border-opacity-20">
-        Voice Settings
+        Settings
       </h1>
       {isLoading ? (
         <div className="col-span-full flex justify-center items-center py-32">
@@ -132,11 +132,11 @@ export default function VoiceSettingsPage() {
         <>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="block mb-1">Input Device</label>
+              <label className="block mb-2">Input Device</label>
               <select
                 value={selectedInput}
                 onChange={(e) => setSelectedInput(e.target.value)}
-                className="w-full p-2 bg-[#202225] rounded text-white"
+                className="w-full p-3 bg-[#202225] rounded text-white"
               >
                 {inputDevices.map((device) => (
                   <option key={device.deviceId} value={device.deviceId}>
@@ -146,11 +146,11 @@ export default function VoiceSettingsPage() {
               </select>
             </div>
             <div>
-              <label className="block mb-1">Output Device</label>
+              <label className="block mb-2">Output Device</label>
               <select
                 value={selectedOutput}
                 onChange={(e) => setSelectedOutput(e.target.value)}
-                className="w-full p-2 bg-[#202225] rounded text-white"
+                className="w-full p-3 bg-[#202225] rounded text-white"
               >
                 {outputDevices.map((device) => (
                   <option key={device.deviceId} value={device.deviceId}>
@@ -184,7 +184,7 @@ export default function VoiceSettingsPage() {
             </div>
           </div>
 
-          <div>
+          {/* <div>
             <label className="block mb-2">Mic Test</label>
             <button
               onClick={micActive ? stopMicTest : startMicTest}
@@ -198,7 +198,7 @@ export default function VoiceSettingsPage() {
                 style={{ width: `${Math.min(audioLevel, 100)}%` }}
               ></div>
             </div>
-          </div>
+          </div> */}
 
           <div>
             <label className="block mb-2">Push-to-Talk Key</label>
@@ -210,7 +210,7 @@ export default function VoiceSettingsPage() {
             </button>
           </div>
 
-          <div className="pt-4">
+          <div className="flex pt-4 justify-end items-end">
             <button
               onClick={saveSettings}
               className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded text-white font-semibold"

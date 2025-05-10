@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IoCallSharp } from "react-icons/io5";
-import { MdEdit } from "react-icons/md";
 import { FaTrash } from "react-icons/fa";
 import TextField from "@/components/textfield";
 import { useVoIP } from "@/context/voipContext";
@@ -11,39 +10,84 @@ import ModalAdd from "@/components/modal-add";
 import Button from "@/components/button";
 import { useCall } from "@/context/callContext";
 import { toast } from "react-toastify";
+import Loading from "@/components/loading";
 
 interface Contact {
-  id: string; // contact_id
-  username: string; // display username (e.g. tes4)
+  id: string;
+  username: string;
   name?: string;
-  sipId: string; // actual SIP ID used in signaling
+  sipId: string;
+  isOnline?: boolean;
 }
 
 export default function ContactPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const contactsRef = useRef<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<{ username: string; name?: string }>({
     username: "",
     name: "",
   });
   const [modalOpen, setModalOpen] = useState(false);
-  const { userAgent } = useVoIP();
-  const { startCall, setCurrentSession } = useCall();
   const [calling, setCalling] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [deletingContactId, setDeletingContactId] = useState<string | null>(
+    null
+  );
 
-  const fetchContacts = async () => {
+  const { userAgent } = useVoIP();
+  const { startCall } = useCall();
+
+  const fetchContacts = async (): Promise<Contact[]> => {
     try {
-      const res = await fetch(`/api/contacts`);
-      const data = await res.json();
-      console.log("Fetched contacts:", data);
-      setContacts(Array.isArray(data) ? data : []);
+      const res = await fetch("/api/contacts");
+      return await res.json();
     } catch (err) {
       console.error("Failed to fetch contacts", err);
+      return [];
+    }
+  };
+
+  const fetchPresence = async (targetContacts: Contact[]) => {
+    if (!targetContacts.length) return;
+
+    try {
+      const sipIds = targetContacts.map((c) => c.sipId);
+      const res = await fetch(
+        `/api/presence?${sipIds.map((id) => `sipId=${id}`).join("&")}`
+      );
+      const statusData: { sipId: string; isOnline: boolean }[] =
+        await res.json();
+
+      const updated = targetContacts.map((contact) => {
+        const status = statusData.find((s) => s.sipId === contact.sipId);
+        return { ...contact, isOnline: status?.isOnline ?? false };
+      });
+
+      setContacts(updated);
+      contactsRef.current = updated;
+    } catch (err) {
+      console.error("Failed to fetch presence", err);
     }
   };
 
   useEffect(() => {
-    fetchContacts();
+    const init = async () => {
+      setLoading(true);
+      const list = await fetchContacts();
+      setContacts(list);
+      contactsRef.current = list;
+      await fetchPresence(list);
+      setLoading(false);
+    };
+
+    init();
+
+    const interval = setInterval(() => {
+      fetchPresence(contactsRef.current);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleCall = async (sipId: string) => {
@@ -55,10 +99,8 @@ export default function ContactPage() {
       if (!uri) throw new Error("Invalid SIP URI");
 
       const inviter = new Inviter(userAgent, uri);
-
-      await inviter.invite(); // Send INVITE first
-
-      await startCall(inviter, sipId); // Let context handle media setup
+      await inviter.invite();
+      await startCall(inviter, sipId);
     } catch (err) {
       console.error("Call failed", err);
     } finally {
@@ -67,12 +109,15 @@ export default function ContactPage() {
   };
 
   const handleDelete = async (contactId: string) => {
+    setDeletingContactId(contactId);
     try {
       const res = await fetch(`/api/contacts?id=${contactId}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        setContacts((prev) => prev.filter((c) => c.id !== contactId));
+        const updated = contacts.filter((c) => c.id !== contactId);
+        setContacts(updated);
+        contactsRef.current = updated;
         toast.success("Kontak berhasil dihapus");
       } else {
         const data = await res.json();
@@ -81,6 +126,8 @@ export default function ContactPage() {
     } catch (error) {
       console.error("Failed to delete contact", error);
       toast.error("Terjadi kesalahan saat menghapus kontak");
+    } finally {
+      setDeletingContactId(null);
     }
   };
 
@@ -89,6 +136,7 @@ export default function ContactPage() {
       toast.warn("Username tidak boleh kosong");
       return;
     }
+
     try {
       const res = await fetch("/api/contacts", {
         method: "POST",
@@ -96,7 +144,10 @@ export default function ContactPage() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        fetchContacts();
+        const updated = await fetchContacts();
+        setContacts(updated);
+        contactsRef.current = updated;
+        await fetchPresence(updated);
         setForm({ username: "", name: "" });
         setModalOpen(false);
         toast.success("Kontak berhasil ditambahkan");
@@ -154,50 +205,76 @@ export default function ContactPage() {
           />
         </div>
 
-        <div className="overflow-hidden rounded-xl shadow-sm">
-          <table className="min-w-full">
-            <tbody>
-              {filteredContacts.map((contact) => (
-                <tr key={contact.id} className="border-b border-gray-600">
-                  <td className="px-6 py-4 text-lg font-medium text-white">
-                    {contact.username}
-                    <span className="text-xs text-gray-400 ml-2">
-                      (SIP ID: {contact.sipId})
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-lg text-center text-white">
-                    {contact.name || "-"}
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-4">
-                    <button
-                      disabled={calling}
-                      onClick={() => handleCall(contact.sipId)}
-                      className="p-2 rounded-full bg-white text-gray-600"
-                    >
-                      <IoCallSharp size={18} />
-                    </button>
-                    <button className="p-2 rounded-full bg-white text-gray-600">
-                      <MdEdit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(contact.id)}
-                      className="p-2 rounded-full bg-white text-gray-600"
-                    >
-                      <FaTrash size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filteredContacts.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="text-center py-8 text-gray-500">
-                    No contacts found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div className="text-center text-gray-400 py-8">
+            <Loading />
+          </div>
+        ) : filteredContacts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-12">
+            {filteredContacts.map((contact) => (
+              <div
+                key={contact.id}
+                className="bg-[#292b2f] p-6 rounded-xl shadow-md flex flex-col justify-between"
+              >
+                <div className="flex justify-between">
+                  <div>
+                    <h1 className="text-lg font-semibold text-white">
+                      {contact.name || "-"}
+                    </h1>
+                    <h2 className="text-base font-medium text-gray-200">
+                      {contact.username}
+                    </h2>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">
+                      SIP ID: {contact.sipId}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          contact.isOnline ? "bg-green-400" : "bg-gray-500"
+                        }`}
+                      />
+                      <p
+                        className={`text-sm font-semibold ${
+                          contact.isOnline ? "text-green-400" : "text-gray-400"
+                        }`}
+                      >
+                        {contact.isOnline ? "Online" : "Offline"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex justify-between gap-2">
+                  <button
+                    disabled={calling}
+                    onClick={() => handleCall(contact.sipId)}
+                    className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-2 rounded-md text-sm"
+                  >
+                    <IoCallSharp />
+                    {calling ? "Calling..." : "Call"}
+                  </button>
+
+                  <button
+                    disabled={deletingContactId === contact.id}
+                    onClick={() => handleDelete(contact.id)}
+                    className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-8 py-2 rounded-md text-sm"
+                  >
+                    <FaTrash />
+                    {deletingContactId === contact.id
+                      ? "Deleting..."
+                      : "Delete"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-500 py-8">
+            No contacts found.
+          </div>
+        )}
       </div>
     </>
   );

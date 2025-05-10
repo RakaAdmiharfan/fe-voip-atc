@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import { signJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
 import type { UserRow } from "@/types/db";
+import { redis } from "@/lib/redis";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -43,6 +44,9 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24, // 1 day
       secure: process.env.NODE_ENV === "production",
     });
+
+    // ✅ Tandai presence ke Redis (60 detik TTL)
+    await redis.set(`presence:sip:${user.id}`, "online", "EX", 60);
 
     const sipConfig = {
       username: user.id.toString(), // gunakan sipId (numeric)
