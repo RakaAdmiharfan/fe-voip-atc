@@ -97,10 +97,11 @@ export default function CallUI() {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
-        if (data?.ptt_key) setPttKey(data.ptt_key);
+        console.log("[PTT] FULL settings fetched:", data);
+        setPttKey(data?.ptt_key || "Control");
       })
       .catch((err) => {
-        console.error("Failed to fetch pttKey", err);
+        console.error("[PTT] Failed to fetch settings", err);
         toast.error("Gagal memuat tombol PTT");
       });
   }, []);
@@ -161,6 +162,10 @@ export default function CallUI() {
   // }, [pttKey, gainRef, audioContextRef]);
 
   useEffect(() => {
+    if (!pttKey || !currentSession) return;
+
+    console.log("[PTT] Activating listener for:", pttKey);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.key === pttKey &&
@@ -174,19 +179,14 @@ export default function CallUI() {
           audioContextRef.current.currentTime
         );
 
-        // ✅ Enable track for outgoing stream
         const pc = getPeerConnection();
         const track = pc
           ?.getSenders()
           .find((s) => s.track?.kind === "audio")?.track;
-        if (track) {
-          track.enabled = true;
-          console.log("[PTT] gain =", gainRef.current?.gain.value);
-          console.log("[PTT] track.enabled =", track?.enabled);
-        }
+        if (track) track.enabled = true;
 
         setIsPTTPressed(true);
-        console.log("[PTT] Key down: gain =", gainRef.current.gain.value);
+        console.log("[PTT] Key down - gain:", gainRef.current.gain.value);
       }
     };
 
@@ -203,20 +203,14 @@ export default function CallUI() {
           audioContextRef.current.currentTime
         );
 
-        // ✅ Disable track so remote peer gets no audio
         const pc = getPeerConnection();
         const track = pc
           ?.getSenders()
           .find((s) => s.track?.kind === "audio")?.track;
-
-        if (track) {
-          track.enabled = false;
-          console.log("[PTT] gain =", gainRef.current?.gain.value);
-          console.log("[PTT] track.enabled =", track?.enabled);
-        }
+        if (track) track.enabled = false;
 
         setIsPTTPressed(false);
-        console.log("[PTT] Key up: gain =", gainRef.current.gain.value);
+        console.log("[PTT] Key up - gain:", gainRef.current.gain.value);
       }
     };
 
