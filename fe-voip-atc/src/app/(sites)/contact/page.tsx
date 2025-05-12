@@ -6,7 +6,7 @@ import { FaTrash } from "react-icons/fa";
 import TextField from "@/components/textfield";
 import { useVoIP } from "@/context/voipContext";
 import { Inviter, UserAgent } from "sip.js";
-import ModalAdd from "@/components/modal-add";
+import ModalAdd, { FormData } from "@/components/modal-add";
 import Button from "@/components/button";
 import { useCall } from "@/context/callContext";
 import { toast } from "react-toastify";
@@ -24,10 +24,11 @@ export default function ContactPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const contactsRef = useRef<Contact[]>([]);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState<{ username: string; name?: string }>({
+  const [form, setForm] = useState<FormData>({
     username: "",
     name: "",
   });
+
   const [modalOpen, setModalOpen] = useState(false);
   const [calling, setCalling] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -132,7 +133,7 @@ export default function ContactPage() {
   };
 
   const handleAddContact = async () => {
-    if (!form.username.trim()) {
+    if (!form.username?.trim()) {
       toast.warn("Username tidak boleh kosong");
       return;
     }
@@ -169,13 +170,14 @@ export default function ContactPage() {
     <>
       {modalOpen && (
         <ModalAdd
-          title="Add New Contact"
+          title="Add Contact"
           formData={form}
           setFormData={setForm}
           button1Text="Cancel"
           button2Text="Add"
           onButton1Click={() => setModalOpen(false)}
           onButton2Click={handleAddContact}
+          showFields={{ username: true, name: true }}
         />
       )}
 

@@ -20,6 +20,20 @@ export interface UserSettingsRow extends RowDataPacket {
   updated_at: Date;
 }
 
+export interface ChannelRow extends RowDataPacket {
+  id: number;
+  name: string;
+  number: string;
+  created_at: Date;
+}
+
+export interface ChannelMemberRow extends RowDataPacket {
+  id: number;
+  channel_id: number;
+  user_id: number;
+  joined_at: Date;
+}
+
 // === CONTACTS TABLE ===
 export interface ContactRow extends RowDataPacket {
   contact_id: number;
