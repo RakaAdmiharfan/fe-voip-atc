@@ -184,7 +184,7 @@ export default function VoiceSettingsPage() {
             </div>
           </div>
 
-          {/* <div>
+          <div>
             <label className="block mb-2">Mic Test</label>
             <button
               onClick={micActive ? stopMicTest : startMicTest}
@@ -198,7 +198,7 @@ export default function VoiceSettingsPage() {
                 style={{ width: `${Math.min(audioLevel, 100)}%` }}
               ></div>
             </div>
-          </div> */}
+          </div>
 
           <div>
             <label className="block mb-2">Push-to-Talk Key</label>

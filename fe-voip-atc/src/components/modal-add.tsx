@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import TextField from "./textfield";
-import Image from "next/image";
 
 export interface FormData {
   username?: string;

@@ -1,5 +1,6 @@
 "use client";
 
+import { getPeerConnection } from "@/lib/getPeerConnection";
 import {
   createContext,
   useContext,
@@ -91,7 +92,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         await audioContextRef.current?.close();
       }
     } catch (err) {
-      console.warn("AudioContext already closed or failed to close");
+      console.warn("AudioContext already closed or failed to close", err);
     }
     audioContextRef.current = null;
     gainRef.current = null;
@@ -207,8 +208,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       try {
         const stream = await setupAudioStream();
 
-        const pc = (inviter.sessionDescriptionHandler as any)
-          ?.peerConnection as RTCPeerConnection;
+        const pc = getPeerConnection(inviter);
 
         stream.getAudioTracks().forEach((track) => {
           track.enabled = false;
@@ -274,8 +274,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const stream = await setupAudioStream();
       await incomingSession.accept();
 
-      const pc = (incomingSession.sessionDescriptionHandler as any)
-        ?.peerConnection as RTCPeerConnection;
+      const pc = getPeerConnection(incomingSession);
 
       stream.getAudioTracks().forEach((track) => {
         track.enabled = false;
@@ -348,11 +347,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     audio.style.display = "none";
     audio.volume = 1;
 
-    if (
-      outputDeviceIdRef.current &&
-      typeof (audio as any).setSinkId === "function"
-    ) {
-      (audio as any).setSinkId(outputDeviceIdRef.current).catch(console.warn);
+    if (outputDeviceIdRef.current && typeof audio.setSinkId === "function") {
+      audio.setSinkId(outputDeviceIdRef.current).catch(console.warn);
     }
 
     document.body.appendChild(audio);
@@ -416,11 +412,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (callState === "in-call") {
-      const session = currentSession;
-      const pc = (session?.sessionDescriptionHandler as any)?.peerConnection as
-        | RTCPeerConnection
-        | undefined;
-
+      const pc = getPeerConnection(currentSession);
       const sender = pc?.getSenders().find((s) => s.track?.kind === "audio");
 
       if (sender?.track) {

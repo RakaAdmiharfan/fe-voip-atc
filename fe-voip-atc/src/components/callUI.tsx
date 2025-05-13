@@ -5,6 +5,7 @@ import { useCall } from "@/context/callContext";
 import { IoMicOff, IoMic, IoCall, IoClose } from "react-icons/io5";
 import { SessionState } from "sip.js";
 import { toast } from "react-toastify";
+import { getPeerConnection } from "@/lib/getPeerConnection";
 
 function IncomingCallControls({
   callerId,
@@ -88,10 +89,6 @@ export default function CallUI() {
   const [isPTTPressed, setIsPTTPressed] = useState(false);
   const [pttKey, setPttKey] = useState("Control");
   const keyPressedRef = useRef(false);
-  const getPeerConnection = () => {
-    return (currentSession?.sessionDescriptionHandler as any)
-      ?.peerConnection as RTCPeerConnection | undefined;
-  };
 
   useEffect(() => {
     fetch("/api/settings")
@@ -122,45 +119,6 @@ export default function CallUI() {
     return () => session.stateChange.removeListener(updateStatus);
   }, [currentSession, incomingSession]);
 
-  // useEffect(() => {
-  //   const handleKeyDown = (e: KeyboardEvent) => {
-  //     if (e.key === pttKey && !keyPressedRef.current) {
-  //       keyPressedRef.current = true;
-  //       if (gainRef.current && audioContextRef.current) {
-  //         gainRef.current.gain.setValueAtTime(
-  //           1,
-  //           audioContextRef.current.currentTime
-  //         );
-  //       }
-  //       console.log("[PTT] Key down:", gainRef.current?.gain.value);
-
-  //       setIsPTTPressed(true);
-  //     }
-  //   };
-
-  //   const handleKeyUp = (e: KeyboardEvent) => {
-  //     if (e.key === pttKey && keyPressedRef.current) {
-  //       keyPressedRef.current = false;
-  //       if (gainRef.current && audioContextRef.current) {
-  //         gainRef.current.gain.setValueAtTime(
-  //           0,
-  //           audioContextRef.current.currentTime
-  //         );
-  //       }
-  //       console.log("[PTT] Key up:", gainRef.current?.gain.value);
-
-  //       setIsPTTPressed(false);
-  //     }
-  //   };
-
-  //   window.addEventListener("keydown", handleKeyDown);
-  //   window.addEventListener("keyup", handleKeyUp);
-  //   return () => {
-  //     window.removeEventListener("keydown", handleKeyDown);
-  //     window.removeEventListener("keyup", handleKeyUp);
-  //   };
-  // }, [pttKey, gainRef, audioContextRef]);
-
   useEffect(() => {
     if (!pttKey || !currentSession) return;
 
@@ -179,7 +137,7 @@ export default function CallUI() {
           audioContextRef.current.currentTime
         );
 
-        const pc = getPeerConnection();
+        const pc = getPeerConnection(currentSession);
         const track = pc
           ?.getSenders()
           .find((s) => s.track?.kind === "audio")?.track;
@@ -203,7 +161,7 @@ export default function CallUI() {
           audioContextRef.current.currentTime
         );
 
-        const pc = getPeerConnection();
+        const pc = getPeerConnection(currentSession);
         const track = pc
           ?.getSenders()
           .find((s) => s.track?.kind === "audio")?.track;
@@ -220,18 +178,7 @@ export default function CallUI() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [pttKey, currentSession]);
-
-  // useEffect(() => {
-  //   if (callState === "ended") {
-  //     try {
-  //       audioContextRef.current?.close();
-  //     } catch (e) {
-  //       console.warn("Failed to close audio context:", e);
-  //     }
-  //     gainRef.current = null;
-  //   }
-  // }, [callState]);
+  }, [pttKey, currentSession, gainRef, audioContextRef]);
 
   const handleEnd = isChannel ? leaveChannel : endCall;
 
@@ -277,6 +224,8 @@ export default function CallUI() {
                 <img
                   src={user.avatar}
                   alt="Avatar"
+                  width={128}
+                  height={128}
                   className="w-full h-full object-cover"
                 />
               </div>

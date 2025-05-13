@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/button";
 import TextField from "@/components/textfield";
-import { FaTrash, FaSignInAlt } from "react-icons/fa";
-import { useCall } from "@/context/callContext";
-import { Inviter, UserAgent } from "sip.js";
-import { useVoIP } from "@/context/voipContext";
-import axios from "axios";
+import { FaSignInAlt } from "react-icons/fa";
+// import { useCall } from "@/context/callContext";
+// import { useVoIP } from "@/context/voipContext";
 import { toast } from "react-toastify";
 import ModalAdd, { FormData } from "@/components/modal-add";
 import Loading from "@/components/loading";
@@ -22,8 +20,8 @@ interface Channel {
 
 export default function ChannelPage() {
   const [search, setSearch] = useState("");
-  const { startCall } = useCall();
-  const { userAgent } = useVoIP();
+  // const { startCall } = useCall();
+  // const { userAgent } = useVoIP();
   const [joining, setJoining] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);

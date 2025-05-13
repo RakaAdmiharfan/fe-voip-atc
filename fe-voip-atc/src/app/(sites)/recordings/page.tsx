@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/button";
-import { FaPlay } from "react-icons/fa";
 import { CallListRow } from "@/types/db";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
@@ -35,7 +34,7 @@ function getStatusColor(status: string) {
 export default function RecordingPage() {
   const [tab, setTab] = useState<"private" | "channel">("private");
   const [recordings, setRecordings] = useState<CallListRow[]>([]);
-  const [dateFilter, setDateFilter] = useState<string>("");
+  const [dateFilter] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {

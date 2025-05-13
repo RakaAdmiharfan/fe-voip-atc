@@ -71,8 +71,8 @@ export async function POST(req: NextRequest) {
       { message: "Channel created", channelId, number },
       { status: 201 }
     );
-  } catch (err: any) {
-    console.error("API /channel/create error:", err);
+  } catch (error) {
+    console.error("API /channel/create error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

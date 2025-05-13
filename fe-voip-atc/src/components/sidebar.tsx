@@ -47,7 +47,7 @@ const Sidebar = () => {
       });
       toast.success("Logout Berhasil.");
       router.push("/login");
-    } catch (error) {
+    } catch {
       toast.error("Logout Gagal");
     }
   };
