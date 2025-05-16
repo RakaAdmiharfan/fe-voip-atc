@@ -23,6 +23,7 @@ export async function GET() {
         c.name, 
         c.number, 
         c.created_at,
+        c.is_private,              
         COUNT(cm_all.user_id) AS members
       FROM channels c
       JOIN channel_members cm_self ON c.id = cm_self.channel_id

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   // ✅ Cari channel berdasarkan nama unik
   const [channelRows] = await db.query<ChannelRow[]>(
-    `SELECT id FROM channels WHERE name = ?`,
+    `SELECT id, is_private FROM channels WHERE name = ?`,
     [name]
   );
 
@@ -30,6 +30,14 @@ export async function POST(req: NextRequest) {
 
   if (!channel) {
     return NextResponse.json({ error: "Channel not found" }, { status: 404 });
+  }
+
+  // ✅ Tolak jika channel bersifat private
+  if (channel.is_private) {
+    return NextResponse.json(
+      { error: "Cannot join private channel directly" },
+      { status: 403 }
+    );
   }
 
   // ✅ Cek apakah user sudah join channel

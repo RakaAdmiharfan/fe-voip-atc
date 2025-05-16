@@ -25,6 +25,7 @@ export interface ChannelRow extends RowDataPacket {
   name: string;
   number: string;
   created_at: Date;
+  is_private: boolean;
 }
 
 export interface ChannelMemberRow extends RowDataPacket {
@@ -54,6 +55,18 @@ export interface CallListRow extends RowDataPacket {
   s3_url: string | null;
   recording_uploaded: number;
   status: string;
+}
+
+export interface ChannelHistoryRow extends RowDataPacket {
+  call_id: string | null;
+  caller_id: string | null;
+  channel: string | null;
+  join_time: Date | null;
+  leave_time: Date | null;
+  recording_filename: string | null;
+  recording_s3_url: string | null;
+  log_speech_filename: string | null;
+  log_speech_s3_url: string | null;
 }
 
 // === PS_AUTH TABLE ===

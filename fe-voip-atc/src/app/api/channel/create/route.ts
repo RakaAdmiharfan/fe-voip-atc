@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name } = await req.json();
+    const body = await req.json();
+    const { name, type } = body;
 
     if (!name || typeof name !== "string") {
       return NextResponse.json(
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validasi tipe channel (default ke "public")
+    const channelType = type === "private" ? "private" : "public";
+    const isPrivate = channelType === "private" ? 1 : 0;
 
     // ✅ Cek apakah nama sudah dipakai
     const [existing] = await db.query<ChannelRow[]>(
@@ -55,8 +60,8 @@ export async function POST(req: NextRequest) {
 
     // ✅ Insert ke tabel channels
     const [insertResult] = await db.query<OkPacket>(
-      `INSERT INTO channels (name, number, created_at) VALUES (?, ?, NOW())`,
-      [name, number]
+      `INSERT INTO channels (name, number, is_private, created_at) VALUES (?, ?, ?, NOW())`,
+      [name, number, isPrivate]
     );
 
     const channelId = insertResult.insertId;

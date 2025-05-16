@@ -96,7 +96,7 @@ export default function RecordingPage() {
             <Loading />
           </div>
         ) : filtered.length === 0 ? (
-          <p className="text-gray-400 text-center col-span-full">
+          <p className="text-gray-400 text-center col-span-full mt-8 text-xl">
             Tidak ada recording.
           </p>
         ) : (
@@ -130,22 +130,30 @@ export default function RecordingPage() {
                 Duration: {getDuration(r.start_time, r.end_time)}
               </div>
 
-              <AudioPlayer
-                src={r.recording_s3_url ?? null}
-                showJumpControls={false}
-                customVolumeControls={[RHAP_UI.VOLUME]}
-                layout="horizontal"
-                className="!bg-gray-200 !rounded-lg !px-4 !py-2"
-              />
+              {r.recording_s3_url ? (
+                <AudioPlayer
+                  src={r.recording_s3_url}
+                  showJumpControls={false}
+                  customVolumeControls={[RHAP_UI.VOLUME]}
+                  layout="horizontal"
+                  className="!bg-gray-200 !rounded-lg !px-4 !py-2"
+                />
+              ) : (
+                <div className="text-sm text-gray-400 italic">
+                  Wait for recording to be uploaded.
+                </div>
+              )}
 
               <div className="flex justify-end">
-                <a
-                  href={r.recording_s3_url ?? "#"}
-                  download
-                  className="text-sm bg-[#202225] hover:bg-[#40444b] px-4 py-2 rounded-md"
-                >
-                  Download
-                </a>
+                {r.recording_s3_url ? (
+                  <a
+                    href={r.recording_s3_url}
+                    download
+                    className="text-sm bg-[#202225] hover:bg-[#40444b] px-4 py-2 rounded-md"
+                  >
+                    Download
+                  </a>
+                ) : null}
               </div>
             </div>
           ))

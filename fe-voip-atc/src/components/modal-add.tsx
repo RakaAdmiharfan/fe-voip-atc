@@ -6,6 +6,7 @@ import TextField from "./textfield";
 export interface FormData {
   username?: string;
   name?: string;
+  type?: string;
 }
 
 interface ModalAddProps {
@@ -19,7 +20,10 @@ interface ModalAddProps {
   showFields?: {
     username?: boolean;
     name?: boolean;
+    dropdown?: boolean;
+    channelType?: boolean;
   };
+  dropdownOptions?: string[];
 }
 
 export default function ModalAdd({
@@ -30,7 +34,8 @@ export default function ModalAdd({
   button2Text,
   onButton1Click,
   onButton2Click,
-  showFields = { username: true, name: true }, // default: tampilkan semua
+  showFields = { username: true, name: true },
+  dropdownOptions = [],
 }: ModalAddProps) {
   const [usernameError, setUsernameError] = useState<string | null>(null);
 
@@ -48,6 +53,7 @@ export default function ModalAdd({
         <h2 className="text-lg font-semibold text-[#181D27] mb-5">{title}</h2>
 
         <div className="flex flex-col gap-4 text-left mb-8">
+          {/* Username field */}
           {showFields.username && (
             <>
               <TextField
@@ -68,7 +74,8 @@ export default function ModalAdd({
             </>
           )}
 
-          {showFields.name && (
+          {/* Name field */}
+          {showFields.name && !showFields.dropdown && (
             <TextField
               name="name"
               placeholder="Enter name"
@@ -79,6 +86,50 @@ export default function ModalAdd({
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
               }
             />
+          )}
+
+          {/* Dropdown instead of name */}
+          {showFields.dropdown && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Channel Name
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded px-3 py-2 text-gray-500"
+                value={formData.name || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+              >
+                <option value="" disabled>
+                  -- Select a Channel --
+                </option>
+                {dropdownOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Channel Type Dropdown */}
+          {showFields.channelType && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Channel Type
+              </label>
+              <select
+                className="w-full border text-gray-500 border-gray-300 rounded px-3 py-2"
+                value={formData.type || "public"}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, type: e.target.value }))
+                }
+              >
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+            </div>
           )}
         </div>
 

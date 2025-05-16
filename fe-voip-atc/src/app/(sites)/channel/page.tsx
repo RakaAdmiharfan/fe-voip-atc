@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Button from "@/components/button";
 import TextField from "@/components/textfield";
 import { FaSignInAlt } from "react-icons/fa";
-// import { useCall } from "@/context/callContext";
-// import { useVoIP } from "@/context/voipContext";
+import { useCall } from "@/context/callContext";
+import { useVoIP } from "@/context/voipContext";
 import { toast } from "react-toastify";
 import ModalAdd, { FormData } from "@/components/modal-add";
 import Loading from "@/components/loading";
+import { Inviter, UserAgent } from "sip.js";
 
 interface Channel {
   id: number;
@@ -16,12 +17,14 @@ interface Channel {
   number: string;
   created_at: string;
   members?: number;
+  is_private?: number;
 }
 
 export default function ChannelPage() {
   const [search, setSearch] = useState("");
-  // const { startCall } = useCall();
-  // const { userAgent } = useVoIP();
+  const [calling, setCalling] = useState(false);
+  const { joinChannelCall } = useCall();
+  const { userAgent } = useVoIP();
   const [joining, setJoining] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +35,9 @@ export default function ChannelPage() {
   });
   const [createForm, setCreateForm] = useState<FormData>({
     name: "",
+    type: "public",
   });
+  const [availableChannels, setAvailableChannels] = useState<string[]>([]);
 
   const fetchChannels = async () => {
     try {
@@ -44,6 +49,21 @@ export default function ChannelPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAvailableChannels = async () => {
+    try {
+      const res = await fetch("/api/channel/available");
+      if (!res.ok) throw new Error("Failed to fetch");
+
+      const data: Channel[] = await res.json();
+      const names = data.map((c) => c.name);
+      setAvailableChannels(names);
+      setModalJoinOpen(true);
+    } catch (err) {
+      toast.error("Failed to load joinable channels");
+      console.error("Fetch available channels error:", err);
     }
   };
 
@@ -139,12 +159,31 @@ export default function ChannelPage() {
     }
   };
 
+  const handleChannelCall = async (channelNumber: string) => {
+    if (!userAgent || !channelNumber) return;
+
+    setCalling(true);
+    try {
+      const uri = UserAgent.makeURI(`sip:${channelNumber}@sip.pttalk.id`);
+      if (!uri) throw new Error("Invalid SIP URI");
+
+      const inviter = new Inviter(userAgent, uri);
+      await inviter.invite();
+      await joinChannelCall(channelNumber, inviter); // ⬅️ Bedanya di sini!
+    } catch (err) {
+      console.error("Join channel failed", err);
+      toast.error("Failed to join channel");
+    } finally {
+      setCalling(false);
+    }
+  };
+
   const filtered = channels.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <section className="flex flex-col gap-6 text-white">
+    <>
       {modalJoinOpen && (
         <ModalAdd
           title="Join Channel"
@@ -154,7 +193,8 @@ export default function ChannelPage() {
           button2Text="Join"
           onButton1Click={() => setModalJoinOpen(false)}
           onButton2Click={handleJoinChannel}
-          showFields={{ name: true }} // hanya name
+          showFields={{ dropdown: true }}
+          dropdownOptions={availableChannels}
         />
       )}
 
@@ -167,95 +207,96 @@ export default function ChannelPage() {
           button2Text="Create"
           onButton1Click={() => setModalCreateOpen(false)}
           onButton2Click={handleCreateChannel}
-          showFields={{ name: true }} // hanya name
+          showFields={{ name: true, channelType: true }} // ⬅️ Tambah channelType
         />
       )}
 
-      <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-20">
-        Channel
-      </h1>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-20">
+          Channel
+        </h1>
 
-      <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
-        <div className="w-52 md:w-80">
-          <TextField
-            name="search"
-            type="search"
-            placeholder="Search by channel name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            label=""
-          />
+        <div className="flex flex-col md:flex-row items-center md:justify-between mb-6 gap-4">
+          <div className="w-52 md:w-80">
+            <TextField
+              name="search"
+              type="search"
+              placeholder="Search by channel name"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              label=""
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              text="Join Channel"
+              type="button"
+              onClick={fetchAvailableChannels}
+              color="black"
+              width={170}
+            />
+
+            <Button
+              text="Create Channel"
+              type="button"
+              onClick={() => setModalCreateOpen(true)}
+              color="black"
+              width={170}
+            />
+          </div>
         </div>
 
-        <div className="flex gap-3">
-          <Button
-            text="Join Channel"
-            type="button"
-            onClick={() => setModalJoinOpen(true)}
-            color="black"
-            width={170}
-          />
+        {loading ? (
+          <Loading />
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-center text-gray-400 py-16">
+            <h2 className="text-xl font-semibold text-white mb-2">
+              Belum Join ke Channel
+            </h2>
+            <p className="text-gray-400 max-w-sm">
+              Kamu belum tergabung di channel manapun. Coba join atau buat
+              channel baru untuk mulai komunikasi dengan tim kamu.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filtered.map((channel) => (
+              <div
+                key={channel.id}
+                className="bg-[#292b2f] p-6 rounded-xl shadow-md flex flex-col justify-between"
+              >
+                <div>
+                  <h2 className="text-white text-lg font-semibold mb-1">
+                    {channel.name}
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    {channel.members ?? "?"} Members ·{" "}
+                    {channel.is_private ? "Private" : "Public"}{" "}
+                  </p>
+                </div>
 
-          <Button
-            text="Create Channel"
-            type="button"
-            onClick={() => setModalCreateOpen(true)}
-            color="black"
-            width={170}
-          />
-        </div>
+                <div className="mt-4 flex justify-between gap-3">
+                  <button
+                    disabled={joining || calling}
+                    onClick={() => handleChannelCall(channel.number)}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm"
+                  >
+                    <FaSignInAlt />
+                    Join
+                  </button>
+                  <button
+                    onClick={() => handleLeave(channel.name)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm"
+                  >
+                    Leave
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {loading ? (
-        <Loading />
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center text-gray-400 py-16">
-          {/* <img
-            src="/empty/channel.svg"
-            alt="No channels"
-            className="w-40 h-40 mb-6 opacity-70"
-          /> */}
-          <h2 className="text-xl font-semibold text-white mb-2">
-            Belum Join ke Channel
-          </h2>
-          <p className="text-gray-400 max-w-sm">
-            Kamu belum tergabung di channel manapun. Coba join atau buat channel
-            baru untuk mulai komunikasi dengan tim kamu.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filtered.map((channel) => (
-            <div
-              key={channel.id}
-              className="bg-[#292b2f] p-6 rounded-xl shadow-md flex flex-col justify-between"
-            >
-              <div>
-                <h2 className="text-lg font-semibold mb-1">{channel.name}</h2>
-                <p className="text-sm text-gray-400">
-                  {channel.members ?? "?"} Members
-                </p>
-              </div>
-
-              <div className="mt-4 flex justify-between gap-3">
-                <button
-                  disabled={joining}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm"
-                >
-                  <FaSignInAlt />
-                  Join
-                </button>
-                <button
-                  onClick={() => handleLeave(channel.name)}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm"
-                >
-                  Leave
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+    </>
   );
 }

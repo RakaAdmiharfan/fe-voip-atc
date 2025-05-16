@@ -24,6 +24,10 @@ const Sidebar = () => {
   const [active, setActive] = useState(0);
   const [navOpen, setNavOpen] = useState(false); // Desktop toggle
   const [isMobileOpen, setIsMobileOpen] = useState(false); // Mobile toggle
+  const [userInfo, setUserInfo] = useState<{
+    id: string;
+    username: string;
+  } | null>(null);
 
   useEffect(() => {
     setNavOpen(false);
@@ -51,6 +55,22 @@ const Sidebar = () => {
       toast.error("Logout Gagal");
     }
   };
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const res = await fetch("/api/me");
+        if (!res.ok) throw new Error("Not authenticated");
+
+        const data = await res.json();
+        setUserInfo({ id: data.id, username: data.username });
+      } catch (err) {
+        console.error("Failed to fetch user info:", err);
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
 
   return (
     <>
@@ -92,17 +112,19 @@ const Sidebar = () => {
         >
           {/* Header */}
           <div className="p-8 lg:p-4 border-b border-[#40444b]">
-            <div className="p-0 lg:p-2 flex rounded-2xl gap-4">
-              <Image
-                src={"next.svg"}
-                alt={"Logo"}
-                className="w-10 hidden lg:block justify-center items-center transition-transform duration-300 bg-[#40444b] p-2 rounded-lg"
-                width={10}
-                height={10}
-              />
+            <div className="p-0 lg:p-2 flex items-center gap-4">
+              <div className="relative w-12 h-12 hidden lg:block bg-[#40444b] rounded-lg p-4">
+                <Image
+                  src="/next.svg"
+                  alt="Logo"
+                  fill
+                  className="object-contain p-1"
+                />
+              </div>
               <div className="my-auto hidden lg:block">
-                <h1 className="text-[15px] font-bold text-white">Username</h1>
-                <h2 className="text-[14px] text-white">email</h2>
+                <h1 className="text-[15px] font-bold text-white">
+                  {userInfo?.username || "Loading..."}
+                </h1>
               </div>
             </div>
           </div>

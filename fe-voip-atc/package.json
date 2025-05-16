@@ -30,6 +30,7 @@
     "react-toastify": "^11.0.3",
     "sip.js": "^0.21.2",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "universal-cookie": "^7.2.2",
     "ws": "^8.18.1"
   },
