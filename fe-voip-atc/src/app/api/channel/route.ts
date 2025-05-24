@@ -5,6 +5,8 @@ import type { ChannelRow } from "@/types/db";
 
 interface ChannelWithMembers extends ChannelRow {
   members: number;
+  creator_id: number;
+  creator_name?: string;
 }
 
 export async function GET() {
@@ -16,20 +18,23 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [rows] = await db.query<ChannelWithMembers[]>(
+    const [rows] = await db.query<any[]>(
       `
-      SELECT 
-        c.id, 
-        c.name, 
-        c.number, 
-        c.created_at,
-        c.is_private,              
-        COUNT(cm_all.user_id) AS members
-      FROM channels c
-      JOIN channel_members cm_self ON c.id = cm_self.channel_id
-      LEFT JOIN channel_members cm_all ON c.id = cm_all.channel_id
-      WHERE cm_self.user_id = ?
-      GROUP BY c.id
+        SELECT 
+          c.id, 
+          c.name, 
+          c.number, 
+          c.created_at,
+          c.is_private,
+          c.creator_id,
+          u.username AS creator_name,          
+          COUNT(cm_all.user_id) AS members
+        FROM channels c
+        JOIN users u ON c.creator_id = u.id
+        JOIN channel_members cm_self ON c.id = cm_self.channel_id
+        LEFT JOIN channel_members cm_all ON c.id = cm_all.channel_id
+        WHERE cm_self.user_id = ?
+        GROUP BY c.id
       `,
       [userId]
     );

@@ -24,6 +24,7 @@ export interface ChannelRow extends RowDataPacket {
   id: number;
   name: string;
   number: string;
+  creator_id: number;
   created_at: Date;
   is_private: boolean;
 }

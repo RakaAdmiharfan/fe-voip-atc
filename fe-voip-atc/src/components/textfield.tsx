@@ -70,6 +70,7 @@ export default function TextField({
             </div>
           )}
           <input
+            key={name}
             id={name}
             type="text"
             // required={required}

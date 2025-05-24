@@ -60,8 +60,8 @@ export async function POST(req: NextRequest) {
 
     // ✅ Insert ke tabel channels
     const [insertResult] = await db.query<OkPacket>(
-      `INSERT INTO channels (name, number, is_private, created_at) VALUES (?, ?, ?, NOW())`,
-      [name, number, isPrivate]
+      `INSERT INTO channels (name, number, is_private, created_at, creator_id) VALUES (?, ?, ?, NOW(), ?)`,
+      [name, number, isPrivate, userId]
     );
 
     const channelId = insertResult.insertId;

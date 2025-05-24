@@ -15,6 +15,7 @@ import {
   SessionState,
   SessionDescriptionHandler,
 } from "sip.js";
+// import { socket } from "@/lib/socket";
 
 interface ExtendedSDH extends SessionDescriptionHandler {
   peerConnection: RTCPeerConnection;
@@ -38,6 +39,7 @@ interface CallContextType {
   acceptCall: () => void;
   rejectCall: () => void;
   endCall: () => void;
+  joinChannelCall: (conferenceNumber: string, inviter: Inviter) => void; // ✅
   leaveChannel: () => void;
   isChannel: boolean;
   setIsChannel: (flag: boolean) => void;
@@ -62,6 +64,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isChannel, setIsChannel] = useState(false);
   const outgoingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentRoom, setCurrentRoom] = useState<string | null>(null);
+  const userId = useRef<string>("");
 
   const gainRef = useRef<GainNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -155,9 +159,34 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }, 1000);
   }, [incomingSession, hardResetCallState]);
 
-  const leaveChannel = useCallback(() => {
-    endCall();
-  }, [endCall]);
+  const leaveChannel = useCallback(async () => {
+    try {
+      if (isChannel && currentRoom) {
+        // Inform server untuk leave socket room
+        socket.emit("leave-conference-room", {
+          room: currentRoom,
+          userId: userId.current,
+        });
+
+        // Kirim BYE ke Asterisk jika masih aktif
+        if (
+          currentSession &&
+          currentSession.state === SessionState.Established
+        ) {
+          await currentSession.bye();
+        }
+
+        setCallState("ended");
+
+        setTimeout(async () => {
+          await hardResetCallState();
+        }, 1000);
+      }
+    } catch (err) {
+      console.error("Failed to leave channel:", err);
+      await hardResetCallState();
+    }
+  }, [currentSession, isChannel, currentRoom, hardResetCallState]);
 
   // const setupAudioStream = async () => {
   //   const rawStream = await navigator.mediaDevices.getUserMedia({
@@ -203,6 +232,47 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return destination.stream; // ✅ Return stream to use in addTrack
   };
 
+  const joinChannelCall = useCallback(
+    async (conferenceNumber: string, inviter: Inviter) => {
+      try {
+        const stream = await setupAudioStream();
+        const pc = getPeerConnection(inviter);
+
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = false;
+
+          const existingSender = pc
+            ?.getSenders()
+            .find((s) => s.track?.kind === "audio");
+
+          if (existingSender) {
+            existingSender.replaceTrack(track);
+          } else {
+            pc?.addTrack(track, stream);
+          }
+        });
+
+        setParticipants([
+          { id: userId.current, username: "You", avatar: "user.png" },
+        ]);
+        setIsChannel(true);
+        setCallState("in-call");
+        setCurrentSession(inviter);
+        setCurrentRoom(conferenceNumber);
+
+        // Join ke socket room + kirim identitas
+        socket.emit("join-conference-room", {
+          room: conferenceNumber,
+          userId: userId.current,
+        });
+      } catch (err) {
+        console.error("joinChannelCall failed:", err);
+        hardResetCallState();
+      }
+    },
+    [hardResetCallState]
+  );
+
   const startCall = useCallback(
     async (inviter: Inviter, targetId: string) => {
       try {
@@ -243,7 +313,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         });
 
         setParticipants([
-          { id: "self", username: "You", avatar: "user.png" },
+          { id: userId.current, username: "You", avatar: "user.png" },
           { id: targetId, username: targetId, avatar: "user.png" },
         ]);
 
@@ -264,7 +334,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const caller = invitation.remoteIdentity.uri.user || "unknown";
     setParticipants([
       { id: caller, username: caller, avatar: "user.png" },
-      { id: "self", username: "You", avatar: "user.png" },
+      { id: userId.current, username: "You", avatar: "user.png" },
     ]);
   }, []);
 
@@ -311,7 +381,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const caller = incomingSession.remoteIdentity.uri.user || "unknown";
       setParticipants([
         { id: caller, username: caller, avatar: "user.png" },
-        { id: "self", username: "You", avatar: "user.png" },
+        { id: userId.current, username: "You", avatar: "user.png" },
       ]);
 
       setCurrentSession(incomingSession);
@@ -427,6 +497,102 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [callState, currentSession]);
 
+  useEffect(() => {
+    if (!isChannel || !currentRoom) return;
+
+    const handleInit = (userIds: string[]) => {
+      const formatted = userIds.map((id) => ({
+        id,
+        username: id === userId.current ? "You" : id,
+        avatar: "user.png",
+      }));
+      setParticipants(formatted);
+    };
+
+    const handleUpdate = ({
+      type,
+      user,
+      participants,
+    }: {
+      type: string;
+      user: string;
+      participants: string[];
+    }) => {
+      const formatted = participants.map((id) => ({
+        id,
+        username: id === userId.current ? "You" : id,
+        avatar: "user.png",
+      }));
+      setParticipants(formatted);
+    };
+
+    socket.on("conference-participants", handleInit);
+    socket.on("conferenceEvent", handleUpdate);
+
+    return () => {
+      socket.off("conference-participants", handleInit);
+      socket.off("conferenceEvent", handleUpdate);
+    };
+  }, [isChannel, currentRoom]);
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const res = await fetch("/api/me");
+        const data = await res.json();
+        if (res.ok && data?.id) {
+          userId.current = data.id;
+        } else {
+          console.warn("User not authenticated");
+        }
+      } catch (err) {
+        console.error("Failed to fetch user ID:", err);
+      }
+    };
+
+    fetchUserId();
+  }, []);
+
+  useEffect(() => {
+    if (!isChannel || !currentRoom) return;
+
+    const handleInit = (userIds: string[]) => {
+      console.log("📥 [SOCKET] conference-participants", userIds);
+      setParticipants(
+        userIds.map((id) => ({
+          id,
+          username: id === userId.current ? "You" : id,
+          avatar: "user.png",
+        }))
+      );
+    };
+
+    const handleUpdate = (event: {
+      type: string;
+      user: string;
+      name: string;
+      room: string;
+      participants: string[];
+    }) => {
+      console.log("📥 [SOCKET] conferenceEvent", event);
+      setParticipants(
+        event.participants.map((id) => ({
+          id,
+          username: id === userId.current ? "You" : id,
+          avatar: "user.png",
+        }))
+      );
+    };
+
+    socket.on("conference-participants", handleInit);
+    socket.on("conferenceEvent", handleUpdate);
+
+    return () => {
+      socket.off("conference-participants", handleInit);
+      socket.off("conferenceEvent", handleUpdate);
+    };
+  }, [isChannel, currentRoom]);
+
   return (
     <CallContext.Provider
       value={{
@@ -443,6 +609,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         acceptCall,
         rejectCall,
         endCall,
+        joinChannelCall,
         leaveChannel,
         isChannel,
         setIsChannel,

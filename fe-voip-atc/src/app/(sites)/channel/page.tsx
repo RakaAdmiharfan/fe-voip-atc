@@ -10,6 +10,9 @@ import { toast } from "react-toastify";
 import ModalAdd, { FormData } from "@/components/modal-add";
 import Loading from "@/components/loading";
 import { Inviter, UserAgent } from "sip.js";
+import { FaEdit } from "react-icons/fa";
+import { MdDelete } from "react-icons/md";
+import ModalApprove from "@/components/modal-approval";
 
 interface Channel {
   id: number;
@@ -18,6 +21,8 @@ interface Channel {
   created_at: string;
   members?: number;
   is_private?: number;
+  creator_id: number;
+  creator_name?: string;
 }
 
 export default function ChannelPage() {
@@ -26,6 +31,8 @@ export default function ChannelPage() {
   const { joinChannelCall } = useCall();
   const { userAgent } = useVoIP();
   const [joining, setJoining] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalJoinOpen, setModalJoinOpen] = useState(false);
@@ -37,7 +44,29 @@ export default function ChannelPage() {
     name: "",
     type: "public",
   });
+  const [modalEditOpen, setModalEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<FormData>({
+    name: "",
+    type: "public",
+  });
+  const [editChannelId, setEditChannelId] = useState<number | null>(null);
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [modalDeleteOpen, setModalDeleteOpen] = useState(false);
+  const [deleteChannelId, setDeleteChannelId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch("/api/me");
+      if (!res.ok) throw new Error("Failed to fetch user");
+
+      const data = await res.json();
+      setCurrentUserId(data.id); // sesuaikan dengan struktur responsmu
+    } catch (err) {
+      console.error("Failed to fetch current user:", err);
+    }
+  };
 
   const fetchChannels = async () => {
     try {
@@ -70,6 +99,7 @@ export default function ChannelPage() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
+      await fetchCurrentUser();
       await fetchChannels();
     };
     init();
@@ -109,7 +139,7 @@ export default function ChannelPage() {
       return;
     }
 
-    setJoining(true);
+    setCreating(true);
     try {
       const res = await fetch("/api/channel/create", {
         method: "POST",
@@ -123,18 +153,14 @@ export default function ChannelPage() {
         setModalCreateOpen(false);
         toast.success("Channel created successfully");
       } else {
-        if (res.status === 409) {
-          toast.error("Channel name already exists"); // 💥 Khusus error duplikat
-        } else {
-          const data = await res.json();
-          toast.error(data.error || "Failed to create channel");
-        }
+        const data = await res.json();
+        toast.error(data.error || "Failed to create channel");
       }
     } catch (err) {
       console.error("Failed to create channel", err);
       toast.error("Something went wrong");
     } finally {
-      setJoining(false);
+      setCreating(false);
     }
   };
 
@@ -178,6 +204,62 @@ export default function ChannelPage() {
     }
   };
 
+  const handleEditChannel = async () => {
+    if (!editChannelId || !editForm.name?.trim()) {
+      toast.warn("Name is required");
+      return;
+    }
+
+    setEditing(true);
+    try {
+      const res = await fetch(`/api/channel/${editChannelId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editForm.name, type: editForm.type }),
+      });
+
+      if (res.ok) {
+        await fetchChannels();
+        toast.success("Channel updated");
+        setModalEditOpen(false);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to update channel");
+      }
+    } catch (err) {
+      console.error("Edit channel error", err);
+      toast.error("Something went wrong");
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const handleDeleteChannel = async () => {
+    if (!deleteChannelId) return;
+
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/channel/${deleteChannelId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Channel deleted");
+        await fetchChannels(); // refresh list
+        setModalDeleteOpen(false);
+        setDeleteChannelId(null);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to delete channel");
+      }
+    } catch (err) {
+      console.error("Delete channel error:", err);
+      toast.error("Something went wrong");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const filtered = channels.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -195,6 +277,7 @@ export default function ChannelPage() {
           onButton2Click={handleJoinChannel}
           showFields={{ dropdown: true }}
           dropdownOptions={availableChannels}
+          loading={joining}
         />
       )}
 
@@ -207,7 +290,34 @@ export default function ChannelPage() {
           button2Text="Create"
           onButton1Click={() => setModalCreateOpen(false)}
           onButton2Click={handleCreateChannel}
-          showFields={{ name: true, channelType: true }} // ⬅️ Tambah channelType
+          showFields={{ name: true, channelType: true }}
+          loading={creating}
+        />
+      )}
+
+      {modalEditOpen && (
+        <ModalAdd
+          title="Edit Channel"
+          formData={editForm}
+          setFormData={setEditForm}
+          button1Text="Cancel"
+          button2Text="Save"
+          onButton1Click={() => setModalEditOpen(false)}
+          onButton2Click={handleEditChannel}
+          showFields={{ name: true, channelType: true }}
+          loading={editing}
+        />
+      )}
+
+      {modalDeleteOpen && (
+        <ModalApprove
+          title="Hapus Channel?"
+          subtitle="Channel ini akan dihapus secara permanen."
+          button1Text="Batal"
+          button2Text="Hapus"
+          onButton1Click={() => setModalDeleteOpen(false)}
+          onButton2Click={handleDeleteChannel}
+          loading={deleteLoading}
         />
       )}
 
@@ -264,19 +374,52 @@ export default function ChannelPage() {
             {filtered.map((channel) => (
               <div
                 key={channel.id}
-                className="bg-[#292b2f] p-6 rounded-xl shadow-md flex flex-col justify-between"
+                className="relative bg-[#292b2f] p-6 rounded-xl shadow-md flex flex-col justify-between"
               >
-                <div>
-                  <h2 className="text-white text-lg font-semibold mb-1">
-                    {channel.name}
-                  </h2>
-                  <p className="text-sm text-gray-400">
-                    {channel.members ?? "?"} Members ·{" "}
-                    {channel.is_private ? "Private" : "Public"}{" "}
-                  </p>
+                <div className="flex flex-row justify-between">
+                  <div>
+                    <h2 className="text-white text-lg font-semibold mb-1">
+                      {channel.name}
+                    </h2>
+                    <p className="text-sm text-gray-400">
+                      {channel.members ?? "?"} Members ·{" "}
+                      {channel.is_private ? "Private" : "Public"}
+                    </p>
+                  </div>
+                  <div>
+                    {channel.creator_id === currentUserId && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditForm({
+                              name: channel.name,
+                              type: channel.is_private ? "private" : "public",
+                            });
+                            setEditChannelId(channel.id);
+                            setModalEditOpen(true);
+                          }}
+                          className=" p-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white shadow-md"
+                          title="Edit Channel"
+                        >
+                          <FaEdit size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setDeleteChannelId(channel.id);
+                            setModalDeleteOpen(true);
+                          }}
+                          className="p-2 bg-red-600 hover:bg-red-700 rounded-full text-white shadow-md"
+                          title="Delete Channel"
+                        >
+                          <MdDelete size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-4 flex justify-between gap-3">
+                <div className="mt-10 flex flex-wrap justify-between gap-2">
                   <button
                     disabled={joining || calling}
                     onClick={() => handleChannelCall(channel.number)}
@@ -285,12 +428,15 @@ export default function ChannelPage() {
                     <FaSignInAlt />
                     Join
                   </button>
-                  <button
-                    onClick={() => handleLeave(channel.name)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm"
-                  >
-                    Leave
-                  </button>
+
+                  {channel.creator_id !== currentUserId && (
+                    <button
+                      onClick={() => handleLeave(channel.name)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm"
+                    >
+                      Leave
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

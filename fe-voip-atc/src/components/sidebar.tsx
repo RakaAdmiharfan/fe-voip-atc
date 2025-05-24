@@ -76,15 +76,10 @@ const Sidebar = () => {
     <>
       {showModal && (
         <ModalApprove
-          image="/modal/logout-icon.svg"
           title="Log out Account"
           subtitle="Apakah kamu yakin ingin log out dari akun ini?"
           button1Text="Cancel"
           button2Text="Ya"
-          button1Color="bg-[#FFFFFF]"
-          button1TextColor="text-[#414651]"
-          button2Color="bg-[#D92D20]"
-          button2TextColor="text-[#FFFFFF]"
           onButton1Click={() => setShowModal(false)}
           onButton2Click={() => handleLogOut()}
           loading={false}
@@ -113,12 +108,12 @@ const Sidebar = () => {
           {/* Header */}
           <div className="p-8 lg:p-4 border-b border-[#40444b]">
             <div className="p-0 lg:p-2 flex items-center gap-4">
-              <div className="relative w-12 h-12 hidden lg:block bg-[#40444b] rounded-lg p-4">
+              <div className="relative w-12 h-12 hidden lg:block bg-white rounded-lg">
                 <Image
-                  src="/next.svg"
+                  src="/logo.png"
                   alt="Logo"
                   fill
-                  className="object-contain p-1"
+                  className="object-contain"
                 />
               </div>
               <div className="my-auto hidden lg:block">

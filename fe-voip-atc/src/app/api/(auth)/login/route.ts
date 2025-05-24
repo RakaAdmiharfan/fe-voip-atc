@@ -33,37 +33,34 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Generate JWT
     const token = signJwt({ id: user.id, username: user.username });
 
-    // ✅ Simpan cookie (pakai await)
-    const cookieStore = await cookies();
-    cookieStore.set("token", token, {
-      httpOnly: true,
-      path: "/",
-      maxAge: 60 * 60 * 24, // 1 day
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    // ✅ Tandai presence ke Redis (60 detik TTL)
-    await redis.set(`presence:sip:${user.id}`, "online", "EX", 60);
-
-    const sipConfig = {
-      username: user.id.toString(), // gunakan sipId (numeric)
-      password: user.sip_password,
-      domain: "sip.pttalk.id",
-      wss: "wss://sip.pttalk.id:8089/ws",
-    };
-
-    return NextResponse.json({
+    // ✅ Gunakan NextResponse untuk set cookie
+    const response = NextResponse.json({
       message: "Login successful",
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
       },
-      sipConfig,
+      sipConfig: {
+        username: user.id.toString(),
+        password: user.sip_password,
+        domain: "sip.pttalk.id",
+        wss: "wss://sip.pttalk.id:8089/ws",
+      },
     });
+
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      path: "/",
+      maxAge: 60 * 60 * 24,
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    await redis.set(`presence:sip:${user.id}`, "online", "EX", 60);
+
+    return response;
   } catch (error: unknown) {
     if (error instanceof Error) {
       console.error("Login error:", error);
@@ -73,7 +70,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // fallback jika error bukan instance dari Error
     return NextResponse.json(
       { message: "Unknown error during login" },
       { status: 500 }
