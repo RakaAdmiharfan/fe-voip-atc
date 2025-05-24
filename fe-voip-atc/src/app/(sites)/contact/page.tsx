@@ -32,6 +32,7 @@ export default function ContactPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [calling, setCalling] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(
     null
   );
@@ -138,6 +139,7 @@ export default function ContactPage() {
       return;
     }
 
+    setAdding(true);
     try {
       const res = await fetch("/api/contacts", {
         method: "POST",
@@ -159,6 +161,8 @@ export default function ContactPage() {
     } catch (error) {
       console.error("Failed to add contact", error);
       toast.error("Terjadi kesalahan saat menambahkan kontak");
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -178,6 +182,7 @@ export default function ContactPage() {
           onButton1Click={() => setModalOpen(false)}
           onButton2Click={handleAddContact}
           showFields={{ username: true, name: true }}
+          loading={adding}
         />
       )}
 
