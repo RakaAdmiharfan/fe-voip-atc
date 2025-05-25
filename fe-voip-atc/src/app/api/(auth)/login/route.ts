@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { signJwt } from "@/lib/jwt";
-import { cookies } from "next/headers";
+// import { cookies } from "next/headers";
 import type { UserRow } from "@/types/db";
-import { redis } from "@/lib/redis";
+import { createRedis } from "@/lib/redis";
 
 export async function POST(req: Request) {
+  const redis = createRedis();
   const body = await req.json();
   const username = body.username?.trim();
   const password = body.password;
@@ -54,11 +55,11 @@ export async function POST(req: Request) {
     response.cookies.set("token", token, {
       httpOnly: true,
       path: "/",
-      maxAge: 60 * 60 * 24,
+      // maxAge: 60 * 60 * 24,
       secure: process.env.NODE_ENV === "production",
     });
 
-    await redis.set(`presence:sip:${user.id}`, "online", "EX", 60);
+    await redis.set(`presence:sip:${user.id}`, "online", "EX", 75);
 
     return response;
   } catch (error: unknown) {

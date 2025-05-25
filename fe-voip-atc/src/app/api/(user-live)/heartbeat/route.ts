@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
-import { redis } from "@/lib/redis";
+import { createRedis } from "@/lib/redis";
 import { getSessionUser } from "@/lib/auth"; // sesuaikan dengan sistem autentikasimu
 
 export async function POST() {
-  const user = await getSessionUser(); // ganti dengan cara ambil ID user kamu
+  const redis = createRedis();
+  const user = await getSessionUser();
 
   if (!user || !user.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // Set presence di Redis dengan TTL 60 detik
-    await redis.setex(`presence:${user.id}`, 60, "online");
+    const key = `presence:sip:${user.id}`;
+    await redis.setex(key, 75, "online");
+
+    console.log(`[HEARTBEAT] Refresh presence for user ${user.id}`);
     return NextResponse.json({ message: "Heartbeat received" });
   } catch (error) {
     console.error("Heartbeat error:", error);

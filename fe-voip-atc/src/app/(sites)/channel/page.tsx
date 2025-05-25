@@ -30,6 +30,9 @@ export default function ChannelPage() {
   const [calling, setCalling] = useState(false);
   const { joinChannelCall } = useCall();
   const { userAgent } = useVoIP();
+  const [joiningChannelNumber, setJoiningChannelNumber] = useState<
+    string | null
+  >(null);
   const [joining, setJoining] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -186,21 +189,21 @@ export default function ChannelPage() {
   };
 
   const handleChannelCall = async (channelNumber: string) => {
-    if (!userAgent || !channelNumber) return;
+    if (!userAgent || !channelNumber || joiningChannelNumber) return;
 
-    setCalling(true);
+    setJoiningChannelNumber(channelNumber);
     try {
       const uri = UserAgent.makeURI(`sip:${channelNumber}@sip.pttalk.id`);
       if (!uri) throw new Error("Invalid SIP URI");
 
       const inviter = new Inviter(userAgent, uri);
       await inviter.invite();
-      await joinChannelCall(channelNumber, inviter); // ⬅️ Bedanya di sini!
+      joinChannelCall(channelNumber, inviter);
     } catch (err) {
       console.error("Join channel failed", err);
       toast.error("Failed to join channel");
     } finally {
-      setCalling(false);
+      setJoiningChannelNumber(null);
     }
   };
 
@@ -421,12 +424,18 @@ export default function ChannelPage() {
 
                 <div className="mt-10 flex flex-wrap justify-between gap-2">
                   <button
-                    disabled={joining || calling}
+                    disabled={joiningChannelNumber !== null || calling}
                     onClick={() => handleChannelCall(channel.number)}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm ${
+                      joiningChannelNumber === channel.number || calling
+                        ? "bg-gray-500 text-white cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700 text-white"
+                    }`}
                   >
                     <FaSignInAlt />
-                    Join
+                    {joiningChannelNumber === channel.number
+                      ? "Joining..."
+                      : "Join"}
                   </button>
 
                   {channel.creator_id !== currentUserId && (

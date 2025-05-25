@@ -71,6 +71,55 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputDeviceIdRef = useRef<string | null>(null);
   const outputDeviceIdRef = useRef<string | null>(null);
+  const usernameRef = useRef<string>("Unknown");
+  const wsRef = useRef<WebSocket | null>(null);
+  const tryRegister = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && userId.current) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: "register",
+          userId: userId.current,
+          username: usernameRef.current,
+        })
+      );
+      console.log("[WS] Registered after fetchUserId");
+    } else {
+      setTimeout(tryRegister, 500);
+    }
+  };
+
+  const fetchUserId = async () => {
+    try {
+      const res = await fetch("/api/me");
+      const data = await res.json();
+      if (res.ok && data?.id && data?.username) {
+        userId.current = data.id;
+        usernameRef.current = data.username;
+
+        const tryRegister = () => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(
+              JSON.stringify({
+                type: "register",
+                userId: data.id,
+                username: data.username,
+              })
+            );
+            console.log("[WS] Registered after fetchUserId");
+          } else {
+            console.log("[WS] Not ready yet, retrying in 500ms...");
+            setTimeout(tryRegister, 500); // Retry until ready
+          }
+        };
+
+        tryRegister();
+      } else {
+        console.warn("User not authenticated");
+      }
+    } catch (err) {
+      console.error("Failed to fetch user ID:", err);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/settings")
@@ -85,6 +134,34 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         console.error("Failed to fetch device settings", err);
       });
   }, []);
+
+  const setupAudioStream = async () => {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const availableInputIds = devices
+      .filter((d) => d.kind === "audioinput")
+      .map((d) => d.deviceId);
+
+    const deviceId = inputDeviceIdRef.current;
+    const isValidInput = deviceId && availableInputIds.includes(deviceId);
+
+    const rawStream = await navigator.mediaDevices.getUserMedia({
+      audio: isValidInput ? { deviceId: { exact: deviceId as string } } : true,
+    });
+
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(rawStream);
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+
+    const destination = audioCtx.createMediaStreamDestination();
+    source.connect(gainNode);
+    gainNode.connect(destination);
+
+    gainRef.current = gainNode;
+    audioContextRef.current = audioCtx;
+
+    return destination.stream;
+  };
 
   const cleanupAudioElements = () => {
     document.querySelectorAll("audio").forEach((audio) => audio.remove());
@@ -160,77 +237,43 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [incomingSession, hardResetCallState]);
 
   const leaveChannel = useCallback(async () => {
+    if (!isChannel || !currentRoom || !userId.current) {
+      console.warn("[leaveChannel] Not in a valid channel state");
+      return;
+    }
+
     try {
-      if (isChannel && currentRoom) {
-        // Inform server untuk leave socket room
-        socket.emit("leave-conference-room", {
-          room: currentRoom,
+      // Inform WebSocket
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        const payload = {
+          type: "leave-channel-call",
+          channelId: currentRoom,
           userId: userId.current,
-        });
-
-        // Kirim BYE ke Asterisk jika masih aktif
-        if (
-          currentSession &&
-          currentSession.state === SessionState.Established
-        ) {
-          await currentSession.bye();
-        }
-
-        setCallState("ended");
-
-        setTimeout(async () => {
-          await hardResetCallState();
-        }, 1000);
+        };
+        console.log("[WS] Sending leave-channel-call:", payload);
+        wsRef.current.send(JSON.stringify(payload));
+      } else {
+        console.warn("[WS] WebSocket not open, cannot send leave-channel-call");
       }
+
+      // Send BYE to Asterisk
+      if (currentSession?.state === SessionState.Established) {
+        await currentSession.bye();
+        console.log("[SIP] Sent BYE to end session");
+      }
+
+      // Set state to ended first
+      setCallState("ended");
+
+      // Reset state after delay
+      setTimeout(() => {
+        hardResetCallState(); // don't await in timeout
+      }, 1000);
     } catch (err) {
-      console.error("Failed to leave channel:", err);
+      console.error("[leaveChannel] Error:", err);
       await hardResetCallState();
     }
   }, [currentSession, isChannel, currentRoom, hardResetCallState]);
-
-  // const setupAudioStream = async () => {
-  //   const rawStream = await navigator.mediaDevices.getUserMedia({
-  //     audio: inputDeviceIdRef.current
-  //       ? { deviceId: { exact: inputDeviceIdRef.current } }
-  //       : true,
-  //   });
-
-  //   const audioCtx = new AudioContext();
-  //   const source = audioCtx.createMediaStreamSource(rawStream);
-  //   const gainNode = audioCtx.createGain();
-  //   gainNode.gain.value = 0;
-  //   source.connect(gainNode);
-
-  //   const destination = audioCtx.createMediaStreamDestination(); // ✅
-  //   gainNode.connect(destination);
-
-  //   gainRef.current = gainNode;
-  //   audioContextRef.current = audioCtx;
-
-  //   return destination.stream; // ✅ use this instead of rawStream
-  // };
-
-  const setupAudioStream = async () => {
-    const rawStream = await navigator.mediaDevices.getUserMedia({
-      audio: inputDeviceIdRef.current
-        ? { deviceId: { exact: inputDeviceIdRef.current } }
-        : true,
-    });
-
-    const audioCtx = new AudioContext();
-    const source = audioCtx.createMediaStreamSource(rawStream);
-    const gainNode = audioCtx.createGain();
-    gainNode.gain.value = 0; // ✅ Always start muted
-
-    const destination = audioCtx.createMediaStreamDestination();
-    source.connect(gainNode);
-    gainNode.connect(destination); // ✅ Connect to destination
-
-    gainRef.current = gainNode;
-    audioContextRef.current = audioCtx;
-
-    return destination.stream; // ✅ Return stream to use in addTrack
-  };
 
   const joinChannelCall = useCallback(
     async (conferenceNumber: string, inviter: Inviter) => {
@@ -240,11 +283,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
         stream.getAudioTracks().forEach((track) => {
           track.enabled = false;
-
           const existingSender = pc
             ?.getSenders()
             .find((s) => s.track?.kind === "audio");
-
           if (existingSender) {
             existingSender.replaceTrack(track);
           } else {
@@ -252,19 +293,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           }
         });
 
-        setParticipants([
-          { id: userId.current, username: "You", avatar: "user.png" },
-        ]);
         setIsChannel(true);
         setCallState("in-call");
         setCurrentSession(inviter);
         setCurrentRoom(conferenceNumber);
 
-        // Join ke socket room + kirim identitas
-        socket.emit("join-conference-room", {
-          room: conferenceNumber,
-          userId: userId.current,
-        });
+        // ✅ Kirim event ke WebSocket server
+        wsRef.current?.send(
+          JSON.stringify({
+            type: "join-channel-call",
+            channelId: conferenceNumber,
+            userId: userId.current,
+            username: usernameRef.current,
+          })
+        );
       } catch (err) {
         console.error("joinChannelCall failed:", err);
         hardResetCallState();
@@ -498,100 +540,61 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [callState, currentSession]);
 
   useEffect(() => {
-    if (!isChannel || !currentRoom) return;
-
-    const handleInit = (userIds: string[]) => {
-      const formatted = userIds.map((id) => ({
-        id,
-        username: id === userId.current ? "You" : id,
-        avatar: "user.png",
-      }));
-      setParticipants(formatted);
-    };
-
-    const handleUpdate = ({
-      type,
-      user,
-      participants,
-    }: {
-      type: string;
-      user: string;
-      participants: string[];
-    }) => {
-      const formatted = participants.map((id) => ({
-        id,
-        username: id === userId.current ? "You" : id,
-        avatar: "user.png",
-      }));
-      setParticipants(formatted);
-    };
-
-    socket.on("conference-participants", handleInit);
-    socket.on("conferenceEvent", handleUpdate);
-
-    return () => {
-      socket.off("conference-participants", handleInit);
-      socket.off("conferenceEvent", handleUpdate);
-    };
-  }, [isChannel, currentRoom]);
-
-  useEffect(() => {
-    const fetchUserId = async () => {
-      try {
-        const res = await fetch("/api/me");
-        const data = await res.json();
-        if (res.ok && data?.id) {
-          userId.current = data.id;
-        } else {
-          console.warn("User not authenticated");
-        }
-      } catch (err) {
-        console.error("Failed to fetch user ID:", err);
-      }
-    };
-
     fetchUserId();
   }, []);
 
   useEffect(() => {
-    if (!isChannel || !currentRoom) return;
+    const ws = new WebSocket("ws://localhost:3001");
+    wsRef.current = ws;
 
-    const handleInit = (userIds: string[]) => {
-      console.log("📥 [SOCKET] conference-participants", userIds);
-      setParticipants(
-        userIds.map((id) => ({
-          id,
-          username: id === userId.current ? "You" : id,
-          avatar: "user.png",
-        }))
-      );
+    ws.onopen = () => {
+      console.log("[WS] Connected");
+      if (userId.current) {
+        ws.send(
+          JSON.stringify({
+            type: "register",
+            userId: userId.current,
+            username: usernameRef.current, // bisa ganti nama sesuai yang login
+          })
+        );
+      }
     };
 
-    const handleUpdate = (event: {
-      type: string;
-      user: string;
-      name: string;
-      room: string;
-      participants: string[];
-    }) => {
-      console.log("📥 [SOCKET] conferenceEvent", event);
-      setParticipants(
-        event.participants.map((id) => ({
-          id,
-          username: id === userId.current ? "You" : id,
-          avatar: "user.png",
-        }))
-      );
+    ws.onmessage = (event) => {
+      console.log("[WS] Raw message:", event.data); // Tambahkan ini
+
+      try {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "conference-participants") {
+          console.log("[WS] Participants message received:", msg); // Tambahkan ini
+
+          const formatted = msg.participants.map((p: any) => {
+            const id = p.id || p.userId || p;
+            const username = id === userId.current ? "You" : p.username || id;
+            return {
+              id,
+              username,
+              avatar: "user.png",
+            };
+          });
+
+          setParticipants(formatted);
+          console.log("[WS] Participants update:", formatted);
+        }
+      } catch (err) {
+        console.error("Failed to parse WebSocket message:", err);
+      }
     };
 
-    socket.on("conference-participants", handleInit);
-    socket.on("conferenceEvent", handleUpdate);
+    ws.onclose = () => {
+      console.warn("[WS] Disconnected");
+    };
 
     return () => {
-      socket.off("conference-participants", handleInit);
-      socket.off("conferenceEvent", handleUpdate);
+      ws.close();
     };
-  }, [isChannel, currentRoom]);
+  }, []);
 
   return (
     <CallContext.Provider

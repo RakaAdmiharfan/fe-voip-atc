@@ -89,6 +89,23 @@ export default function CallUI() {
   const [isPTTPressed, setIsPTTPressed] = useState(false);
   const [pttKey, setPttKey] = useState("Control");
   const keyPressedRef = useRef(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log("[CallUI] Participants length:", participants.length);
+    console.log("[CallUI] Participants:", participants);
+  }, [participants]);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.id) setCurrentUserId(data.id);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch current user", err);
+      });
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -204,36 +221,34 @@ export default function CallUI() {
       </div>
 
       <div className="flex-1 flex items-center justify-center">
-        <div
-          className={`grid gap-10 w-full max-w-6xl px-4 py-10 ${
-            participants.length <= 1
-              ? "grid-cols-1"
-              : participants.length === 2
-              ? "grid-cols-2"
-              : participants.length <= 4
-              ? "grid-cols-2 md:grid-cols-4"
-              : "grid-cols-3 md:grid-cols-4"
-          }`}
-        >
-          {participants.map((user) => (
-            <div
-              key={user.id}
-              className="flex flex-col items-center p-6 rounded-xl bg-[#292b2f] hover:bg-[#40444b] transition min-h-[200px]"
-            >
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#202225] bg-[#202225] flex items-center justify-center shadow-md">
-                <img
-                  src={user.avatar}
-                  alt="Avatar"
-                  width={128}
-                  height={128}
-                  className="w-full h-full object-cover"
-                />
+        <div className="w-full max-w-6xl px-4 py-10">
+          <div className="grid gap-10 justify-center grid-cols-[repeat(auto-fit,_minmax(200px,_1fr))]">
+            {participants.map((user) => (
+              <div
+                key={user.id}
+                className="flex flex-col items-center p-6 rounded-xl bg-[#292b2f] hover:bg-[#40444b] transition min-h-[200px]"
+              >
+                <div
+                  className={`w-32 h-32 rounded-full overflow-hidden border-4 ${
+                    isPTTPressed && user.id === currentUserId
+                      ? "border-green-500"
+                      : "border-[#202225]"
+                  } bg-[#202225] flex items-center justify-center shadow-md transition-colors duration-300`}
+                >
+                  <img
+                    src={user.avatar}
+                    alt="Avatar"
+                    width={128}
+                    height={128}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="mt-5 text-base font-medium text-gray-200">
+                  {user.username}
+                </span>
               </div>
-              <span className="mt-5 text-base font-medium text-gray-200">
-                {user.username}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 

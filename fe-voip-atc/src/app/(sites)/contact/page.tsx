@@ -30,7 +30,7 @@ export default function ContactPage() {
   });
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [calling, setCalling] = useState(false);
+  const [callingSipId, setCallingSipId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(
@@ -92,21 +92,41 @@ export default function ContactPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // useEffect(() => {
+  //   const ws = new WebSocket("ws://localhost:3001");
+  //   ws.onmessage = (e) => console.log("WS msg:", e.data);
+  //   ws.onopen = () => {
+  //     ws.send(
+  //       JSON.stringify({ type: "register", userId: "11", username: "raka" })
+  //     );
+  //     ws.send(JSON.stringify({ type: "join-channel-call", channelId: "6001" }));
+  //   };
+  // }, []);
+
   const handleCall = async (sipId: string) => {
+    const target = contacts.find((c) => c.sipId === sipId);
+
+    if (!target?.isOnline) {
+      toast.warn(`${target?.name || "User"} is currently offline`);
+      return;
+    }
+
     if (!userAgent || !sipId) return;
 
-    setCalling(true);
+    setCallingSipId(sipId); // ✅ tandai yang sedang dipanggil
+
     try {
       const uri = UserAgent.makeURI(`sip:${sipId}@sip.pttalk.id`);
       if (!uri) throw new Error("Invalid SIP URI");
 
       const inviter = new Inviter(userAgent, uri);
       await inviter.invite();
-      await startCall(inviter, sipId);
+      startCall(inviter, sipId);
     } catch (err) {
       console.error("Call failed", err);
+      toast.error("Gagal melakukan panggilan");
     } finally {
-      setCalling(false);
+      setCallingSipId(null);
     }
   };
 
@@ -255,12 +275,16 @@ export default function ContactPage() {
 
                 <div className="mt-8 flex justify-between gap-2">
                   <button
-                    disabled={calling}
+                    disabled={callingSipId !== null || !contact.isOnline}
                     onClick={() => handleCall(contact.sipId)}
-                    className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-2 rounded-md text-sm"
+                    className={`flex items-center justify-center gap-2 px-8 py-2 rounded-md text-sm ${
+                      !contact.isOnline
+                        ? "bg-gray-500 text-white cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700 text-white"
+                    }`}
                   >
                     <IoCallSharp />
-                    {calling ? "Calling..." : "Call"}
+                    {callingSipId === contact.sipId ? "Calling..." : "Call"}
                   </button>
 
                   <button

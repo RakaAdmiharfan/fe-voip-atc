@@ -1,7 +1,8 @@
+import { createRedis } from "@/lib/redis";
 import { NextResponse } from "next/server";
-import { redis } from "@/lib/redis";
 
 export async function GET(req: Request) {
+  const redis = createRedis();
   const { searchParams } = new URL(req.url);
   const sipIds = searchParams.getAll("sipId");
 
@@ -11,8 +12,15 @@ export async function GET(req: Request) {
 
   const results = await Promise.all(
     sipIds.map(async (id) => {
-      const status = await redis.get(`presence:sip:${id}`);
-      return { sipId: id, isOnline: status === "online" };
+      const key = `presence:sip:${id}`;
+      const status = await redis.get(key);
+      const ttl = await redis.ttl(key);
+
+      return {
+        sipId: id,
+        isOnline: status === "online",
+        ttl, // TTL in seconds
+      };
     })
   );
 
