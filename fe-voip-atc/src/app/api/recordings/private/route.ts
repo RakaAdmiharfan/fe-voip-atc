@@ -5,7 +5,9 @@ import type { CallListRow } from "@/types/db";
 
 export async function GET() {
   const session = await getSessionUser();
-  if (!session) {
+  const userId = session?.id;
+
+  if (!userId) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -13,23 +15,33 @@ export async function GET() {
     const [rows] = await db.execute<CallListRow[]>(
       `
       SELECT 
-        call_id, caller_id, receiver_id, start_time, end_time,
-        recording_filename, recording_s3_url, status
-      FROM call_history
-      WHERE (caller_id = ? OR receiver_id = ?) AND status = 'ANSWER'
-      ORDER BY start_time DESC
+        ch.call_id, ch.caller_id, ch.receiver_id, ch.start_time, ch.end_time,
+        ch.recording_filename, ch.recording_s3_url, ch.status,
+        u1.username AS caller_username,
+        u2.username AS receiver_username
+      FROM call_history ch
+      JOIN users u1 ON ch.caller_id = u1.id
+      JOIN users u2 ON ch.receiver_id = u2.id
+      WHERE (ch.caller_id = ? OR ch.receiver_id = ?) AND ch.status = 'ANSWER'
+      ORDER BY ch.start_time DESC
       `,
-      [session.id, session.id]
+      [userId, userId]
     );
 
-    return NextResponse.json(rows);
-  } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Unknown error occurred during fetching call list.";
+    const result = rows.map((row) => {
+      const isCaller = String(row.caller_id) === String(userId);
+      return {
+        ...row,
+        display_name: isCaller ? row.receiver_username : row.caller_username,
+      };
+    });
 
+    return NextResponse.json(result);
+  } catch (err) {
     console.error("Fetch recording error:", err);
-    return NextResponse.json({ message }, { status: 500 });
+    return NextResponse.json(
+      { message: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

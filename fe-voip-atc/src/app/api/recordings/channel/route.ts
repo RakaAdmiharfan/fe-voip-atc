@@ -12,20 +12,38 @@ export async function GET() {
   }
 
   try {
-    const [rows] = await db.query<ChannelHistoryRow[]>(
+    const [rows] = await db.query<any[]>(
       `
       SELECT 
-        call_id, caller_id, channel, join_time, leave_time,
-        recording_filename, recording_s3_url,
-        log_speech_filename, log_speech_s3_url
-      FROM channel_history
-      WHERE caller_id = ?
-      ORDER BY join_time DESC
+        ch.call_id, ch.caller_id, ch.channel, ch.join_time, ch.leave_time,
+        ch.recording_filename, ch.recording_s3_url,
+        ch.log_speech_filename, ch.log_speech_s3_url,
+        c.name AS channel_name
+      FROM channel_history ch
+      LEFT JOIN channels c ON ch.channel = c.number
+      WHERE ch.caller_id = ?
+      ORDER BY ch.join_time DESC
       `,
       [userId]
     );
 
-    return NextResponse.json(rows);
+    const result = rows.map((row) => {
+      const duration =
+        row.join_time && row.leave_time
+          ? Math.floor(
+              (new Date(row.leave_time).getTime() -
+                new Date(row.join_time).getTime()) /
+                1000
+            )
+          : null;
+
+      return {
+        ...row,
+        duration_seconds: duration,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (err) {
     const message =
       err instanceof Error

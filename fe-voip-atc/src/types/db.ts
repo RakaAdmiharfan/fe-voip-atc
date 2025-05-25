@@ -45,7 +45,7 @@ export interface ContactRow extends RowDataPacket {
   created_at: Date;
 }
 
-// === CALL LIST TABLE ===
+// === CALL LIST/RECORDING TABLE ===
 export interface CallListRow extends RowDataPacket {
   call_id: string;
   caller_id: string;
@@ -53,9 +53,12 @@ export interface CallListRow extends RowDataPacket {
   start_time: Date;
   end_time: Date;
   recording_filename: string | null;
-  s3_url: string | null;
+  recording_s3_url: string | null | undefined;
   recording_uploaded: number;
   status: string;
+  caller_username?: string;
+  receiver_username?: string;
+  display_name?: string;
 }
 
 export interface ChannelHistoryRow extends RowDataPacket {
@@ -65,7 +68,7 @@ export interface ChannelHistoryRow extends RowDataPacket {
   join_time: Date | null;
   leave_time: Date | null;
   recording_filename: string | null;
-  recording_s3_url: string | null;
+  recording_s3_url: string | null | undefined;
   log_speech_filename: string | null;
   log_speech_s3_url: string | null;
 }
