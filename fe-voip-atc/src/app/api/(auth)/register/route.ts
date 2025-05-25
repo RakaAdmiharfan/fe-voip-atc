@@ -50,8 +50,8 @@ export async function POST(req: Request) {
     await db.execute(
       `INSERT INTO user_settings 
    (user_id, input_device_id, output_device_id, input_volume, output_volume, ptt_key) 
-   VALUES (?, NULL, NULL, 50, 50, 'p')`,
-      [sipId]
+   VALUES (?, ?, ?, ?, ?, ?)`,
+      [sipId, "default", "default", 50, 50, "p"]
     );
 
     // Simpan ke ps_auths

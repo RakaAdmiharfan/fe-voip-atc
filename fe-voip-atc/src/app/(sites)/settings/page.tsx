@@ -120,8 +120,8 @@ export default function VoiceSettingsPage() {
   };
 
   return (
-    <div className="text-white p-6 bg-[#2f3136] min-h-screen space-y-8">
-      <h1 className="text-2xl font-bold mb-4 pb-2 border-b-2 border-white border-opacity-20">
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold mb-4 pb-2 text-white border-b-2 border-white border-opacity-20">
         Settings
       </h1>
       {isLoading ? (

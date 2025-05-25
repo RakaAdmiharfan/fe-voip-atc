@@ -19,7 +19,13 @@ export async function GET() {
       return NextResponse.json(null); // default value on frontend
     }
 
-    return NextResponse.json(rows[0]);
+    const settings = rows[0];
+
+    return NextResponse.json({
+      ...settings,
+      input_device_id: settings.input_device_id || "default",
+      output_device_id: settings.output_device_id || "default",
+    });
   } catch (err) {
     console.error("Settings fetch error:", err);
     return NextResponse.json(
