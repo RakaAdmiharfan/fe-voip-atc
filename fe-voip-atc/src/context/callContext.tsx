@@ -22,8 +22,9 @@ interface ExtendedSDH extends SessionDescriptionHandler {
 }
 
 interface Participant {
-  id: string;
-  username: string;
+  id?: string;
+  userId?: string;
+  username?: string;
   avatar?: string;
 }
 
@@ -73,20 +74,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const outputDeviceIdRef = useRef<string | null>(null);
   const usernameRef = useRef<string>("Unknown");
   const wsRef = useRef<WebSocket | null>(null);
-  const tryRegister = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && userId.current) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "register",
-          userId: userId.current,
-          username: usernameRef.current,
-        })
-      );
-      console.log("[WS] Registered after fetchUserId");
-    } else {
-      setTimeout(tryRegister, 500);
-    }
-  };
 
   const fetchUserId = async () => {
     try {
@@ -544,7 +531,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:3001");
+    const ws = new WebSocket(process.env.NEXT_PUBLIC_WS_URL!);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -569,7 +556,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (msg.type === "conference-participants") {
           console.log("[WS] Participants message received:", msg); // Tambahkan ini
 
-          const formatted = msg.participants.map((p: any) => {
+          const formatted = msg.participants.map((p: Participant) => {
             const id = p.id || p.userId || p;
             const username = id === userId.current ? "You" : p.username || id;
             return {

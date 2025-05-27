@@ -92,17 +92,6 @@ export default function ContactPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // useEffect(() => {
-  //   const ws = new WebSocket("ws://localhost:3001");
-  //   ws.onmessage = (e) => console.log("WS msg:", e.data);
-  //   ws.onopen = () => {
-  //     ws.send(
-  //       JSON.stringify({ type: "register", userId: "11", username: "raka" })
-  //     );
-  //     ws.send(JSON.stringify({ type: "join-channel-call", channelId: "6001" }));
-  //   };
-  // }, []);
-
   const handleCall = async (sipId: string) => {
     const target = contacts.find((c) => c.sipId === sipId);
 

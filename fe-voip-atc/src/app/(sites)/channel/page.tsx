@@ -27,7 +27,6 @@ interface Channel {
 
 export default function ChannelPage() {
   const [search, setSearch] = useState("");
-  const [calling, setCalling] = useState(false);
   const { joinChannelCall } = useCall();
   const { userAgent } = useVoIP();
   const [joiningChannelNumber, setJoiningChannelNumber] = useState<
@@ -424,10 +423,10 @@ export default function ChannelPage() {
 
                 <div className="mt-10 flex flex-wrap justify-between gap-2">
                   <button
-                    disabled={joiningChannelNumber !== null || calling}
+                    disabled={joiningChannelNumber !== null}
                     onClick={() => handleChannelCall(channel.number)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm ${
-                      joiningChannelNumber === channel.number || calling
+                      joiningChannelNumber === channel.number
                         ? "bg-gray-500 text-white cursor-not-allowed"
                         : "bg-green-600 hover:bg-green-700 text-white"
                     }`}

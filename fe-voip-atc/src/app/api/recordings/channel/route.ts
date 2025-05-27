@@ -12,17 +12,17 @@ export async function GET() {
   }
 
   try {
-    const [rows] = await db.query<any[]>(
+    const [rows] = await db.query<ChannelHistoryRow[]>(
       `
-      SELECT 
-        ch.call_id, ch.caller_id, ch.channel, ch.join_time, ch.leave_time,
-        ch.recording_filename, ch.recording_s3_url,
-        ch.log_speech_filename, ch.log_speech_s3_url,
-        c.name AS channel_name
-      FROM channel_history ch
-      LEFT JOIN channels c ON ch.channel = c.number
-      WHERE ch.caller_id = ?
-      ORDER BY ch.join_time DESC
+        SELECT 
+          ch.call_id, ch.caller_id, ch.channel, ch.join_time, ch.leave_time,
+          ch.recording_filename, ch.recording_s3_url,
+          ch.log_activity_filename,
+          c.name AS channel_name
+        FROM channel_history ch
+        LEFT JOIN channels c ON ch.channel = c.number
+        WHERE ch.caller_id = ?
+        ORDER BY ch.join_time DESC
       `,
       [userId]
     );

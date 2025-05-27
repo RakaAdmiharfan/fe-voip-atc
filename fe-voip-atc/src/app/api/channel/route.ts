@@ -18,7 +18,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [rows] = await db.query<any[]>(
+    const [rows] = await db.query<ChannelWithMembers[]>(
       `
         SELECT 
           c.id, 

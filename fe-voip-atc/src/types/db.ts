@@ -69,8 +69,9 @@ export interface ChannelHistoryRow extends RowDataPacket {
   leave_time: Date | null;
   recording_filename: string | null;
   recording_s3_url: string | null | undefined;
-  log_speech_filename: string | null;
-  log_speech_s3_url: string | null;
+  log_activity_filename: string | null;
+  channel_name?: string;
+  status?: string;
 }
 
 // === PS_AUTH TABLE ===

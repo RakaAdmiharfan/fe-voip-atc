@@ -210,7 +210,7 @@ wss.on("connection", (ws) => {
 const PORT = 3001;
 server.listen(PORT, () => {
   console.log(
-    `✅ WebSocket + Express server running at http://localhost:${PORT}`
+    `✅ WebSocket + Express server running at ${PORT}`
   );
 
   console.log(
