@@ -266,6 +266,13 @@ export default function CallUI() {
           />
         )}
       </div>
+
+      <div className="mt-2 flex justify-center">
+        <span className="text-xs text-gray-300 bg-[#292b2f] px-3 py-2 rounded-full flex items-center justify-center gap-2">
+          Your Push-to-Talk Key:{" "}
+          <span className="ml-1 font-semibold">{pttKey}</span>
+        </span>
+      </div>
     </section>
   );
 }
