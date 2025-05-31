@@ -18,9 +18,11 @@ export async function GET() {
           ch.call_id, ch.caller_id, ch.channel, ch.join_time, ch.leave_time,
           ch.recording_filename, ch.recording_s3_url,
           ch.log_activity_filename,
-          c.name AS channel_name
+          c.name AS channel_name,
+          cs.log_activity_s3_url
         FROM channel_history ch
         LEFT JOIN channels c ON ch.channel = c.number
+        LEFT JOIN conference_sessions cs ON ch.log_activity_filename = cs.log_activity_filename
         WHERE ch.caller_id = ?
         ORDER BY ch.join_time DESC
       `,

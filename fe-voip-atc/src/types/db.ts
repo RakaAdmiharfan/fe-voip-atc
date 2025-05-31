@@ -72,6 +72,7 @@ export interface ChannelHistoryRow extends RowDataPacket {
   log_activity_filename: string | null;
   channel_name?: string;
   status?: string;
+  log_activity_s3_url?: string | null;
 }
 
 // === PS_AUTH TABLE ===

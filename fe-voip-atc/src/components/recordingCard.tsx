@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { CallListRow, ChannelHistoryRow } from "@/types/db";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
+import { LuFileText } from "react-icons/lu";
 
 // Gabungan type agar komponen menerima array hybrid
 type RecordingRow =
@@ -49,6 +50,13 @@ function getRecordingUrl(rec: RecordingRow): string | undefined {
   );
 }
 
+// Fallback untuk log url dari dua tipe
+function getLogUrl(rec: RecordingRow): string | undefined {
+  return "log_activity_s3_url" in rec && rec.log_activity_s3_url
+    ? rec.log_activity_s3_url
+    : undefined;
+}
+
 // Fallback nama tampilan
 function getDisplayName(rec: RecordingRow): string {
   return (
@@ -90,7 +98,7 @@ export default function RecordingCard({ recordings }: RecordingCardProps) {
   const playerRefs = useRef<(HTMLAudioElement | null)[]>([]);
 
   const displayName = getDisplayName(first);
-  const status = getStatus(first);
+  const status = getStatus(first) || "Channel";
   const startTime = getStartTime(first);
   const endTime = getEndTime(recordings[recordings.length - 1]);
 
@@ -120,13 +128,28 @@ export default function RecordingCard({ recordings }: RecordingCardProps) {
             {startTime ? startTime.toLocaleString() : "-"}
           </span>
         </div>
-        <span
-          className={`ml-auto text-xs px-3 py-1 rounded-full text-white ${getStatusColor(
-            status
-          )}`}
-        >
-          {status}
-        </span>
+        <div className="ml-auto flex flex-col items-end">
+          <span
+            className={`text-xs px-3 py-1 rounded-full text-white mb-3 ${getStatusColor(
+              status
+            )}`}
+          >
+            {status}
+          </span>
+          {getLogUrl(first) && (
+            <a
+              href={getLogUrl(first)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 text-sm bg-[#40444b] hover:bg-[#5a5d63] text-white px-3 py-1 rounded-md flex items-center gap-2"
+            >
+              <span>
+                <LuFileText />
+              </span>
+              Log Activity
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Total Duration */}

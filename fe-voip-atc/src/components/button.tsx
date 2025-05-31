@@ -42,7 +42,7 @@ export default function Button({
           ? "bg-navy-900"
           : color == "black"
           ? "bg-[#202225]"
-          : "bg-white border-[1px] border-[#D5D7DA]"
+          : "bg-white border-[1px] border-[#D5D7DA] hover:bg-gray-300"
       }`}
     >
       {isLoading ? (
