@@ -50,7 +50,7 @@ interface CallContextType {
   audioContextRef: React.MutableRefObject<AudioContext | null>;
 }
 
-const CallContext = createContext<CallContextType | undefined>(undefined);
+export const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const [currentSession, setCurrentSession] = useState<

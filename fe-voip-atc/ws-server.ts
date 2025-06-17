@@ -148,7 +148,16 @@ wss.on("connection", (ws) => {
             );
           }
         }
-
+        // ✅ Pastikan pengirim tetap mendapatkan update
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "conference-participants",
+              participants: participantList,
+            })
+          );
+        }
+        
         console.log(`🚪 ${updatedInfo.userId} left channel ${leftChannel}`);
       } catch (err) {
         console.error("❌ Error during leave-channel-call:", err);
