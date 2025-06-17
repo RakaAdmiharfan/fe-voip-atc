@@ -1,3 +1,4 @@
+import { getSessionUser } from "@/lib/auth";
 import { createRedis } from "@/lib/redis";
 import { NextResponse } from "next/server";
 
@@ -5,6 +6,11 @@ export async function GET(req: Request) {
   const redis = createRedis();
   const { searchParams } = new URL(req.url);
   const sipIds = searchParams.getAll("sipId");
+  const user = await getSessionUser();
+
+  if (!user || !user.id) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
 
   if (sipIds.length === 0) {
     return NextResponse.json({ message: "Missing sipId" }, { status: 400 });
